@@ -12,3 +12,12 @@ log = "0.4"
 wgpu = "0.14"
 pollster = "0.2"
 bytemuck = { version = "1.12", features = [ "derive" ] }
+anyhow = "1.0"
+
+[dependencies.image]
+version = "0.24"
+default-features = false
+features = ["png"]
+
+# Going to want 3D math library at some point, glam looks good
+# glam = "0.22"
