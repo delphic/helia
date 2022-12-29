@@ -1,3 +1,4 @@
+use std::time::SystemTime;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -5,6 +6,7 @@ use winit::{
     window::Window,
     window::WindowBuilder,
 };
+use glam::*;
 
 mod texture;
 
@@ -50,7 +52,141 @@ const INDICES: &[u16] = &[
     2, 3, 4,
 ];
 
+#[rustfmt::skip]
+pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 0.5, 0.0,
+    0.0, 0.0, 0.5, 1.0,
+]);
+// ^^ Technically not needed translates from OpenGL space to Metal's
+// without this models centered on 0,0,0 halfway inside the clipping 
+// area arguably this is fine.
+
+struct Camera {
+    eye: Vec3,
+    target: Vec3,
+    up: Vec3,
+    aspect_ratio: f32,
+    fov: f32,
+    near: f32,
+    far: f32,
+}
+
+impl Camera {
+    fn build_view_projection_matrix(&self) -> Mat4 {
+        let view = Mat4::look_at_rh(self.eye, self.target, self.up);
+        let proj = Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far);
+        OPENGL_TO_WGPU_MATRIX * proj * view
+    }
+}
+
+struct CameraController {
+    speed: f32,
+    is_forward_pressed: bool,
+    is_backward_pressed: bool,
+    is_left_pressed: bool,
+    is_right_pressed: bool,
+}
+// TODO: Move most of that ^^ to input map
+
+impl CameraController {
+    fn new(speed: f32) -> Self {
+        Self { 
+            speed,
+            is_forward_pressed: false,
+            is_backward_pressed: false,
+            is_left_pressed: false,
+            is_right_pressed: false,
+        }
+    }
+
+    fn process_events(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    state,
+                    virtual_keycode: Some(keycode),
+                    ..
+                },
+                ..
+            } => {
+                let is_pressed = *state == ElementState::Pressed;
+                match keycode {
+                    VirtualKeyCode::W | VirtualKeyCode::Up => {
+                        self.is_forward_pressed = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::A | VirtualKeyCode::Left => {
+                        self.is_left_pressed = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::S | VirtualKeyCode::Down => {
+                        self.is_backward_pressed = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::D | VirtualKeyCode::Right => {
+                        self.is_right_pressed = is_pressed;
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+
+    // Orbit camera
+    fn update_camera(&self, camera: &mut Camera, elapsed: f32) {
+        let to_target = camera.target - camera.eye;
+        let forward = to_target.normalize();
+        let distance_to_target = to_target.length();
+        let delta = self.speed * elapsed;
+
+        if self.is_forward_pressed && distance_to_target > delta {
+            camera.eye += forward * delta;
+        }
+        if self.is_backward_pressed {
+            camera.eye -= forward * delta;
+        }
+
+        // Rotate which is probably fine cause small angle approx.
+        let right = forward.cross(camera.up);
+        let to_target = camera.target - camera.eye;
+        let distance_to_target = to_target.length();
+
+        if self.is_right_pressed {
+            camera.eye = camera.target - (forward + right * delta).normalize() * distance_to_target;
+        }
+        if self.is_left_pressed {
+            camera.eye = camera.target - (forward - right * delta).normalize() * distance_to_target;
+        }
+    }
+}
+
+
+#[repr(C)] // Required for rust to store data in correct format for shaders
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)] // so we can store in a buffer
+struct CameraUniform {
+    // bytemuck requires 4x4 f32 array rather than a Mat4
+    view_proj: [[f32; 4]; 4],
+}
+// Needing to make new structs for each uniform is tiresome, wonder if grayolson's lib might be more helpful than bytemuck
+
+impl CameraUniform {
+    fn new() -> Self {
+        Self {
+            view_proj: Mat4::IDENTITY.to_cols_array_2d(),
+        }
+    }
+
+    fn update_view_proj(&mut self, camera: &Camera) {
+        self.view_proj = camera.build_view_projection_matrix().to_cols_array_2d();
+    }
+}
+
 struct State {
+    last_update_time: SystemTime, 
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -63,6 +199,11 @@ struct State {
     index_count: u32,
     diffuse_bind_group: wgpu::BindGroup,
     diffuse_texture: texture::Texture,
+    camera: Camera,
+    camera_controller: CameraController,
+    camera_uniform: CameraUniform,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
 }
 
 impl State {
@@ -159,6 +300,57 @@ impl State {
             }
         );
 
+        // Makin' Camera
+        let camera = Camera {
+            eye: (-0.5, 1.0, 2.0).into(),
+            target: (-0.5, 0.0, 0.0).into(),
+            up: Vec3::Y,
+            aspect_ratio: config.width as f32 / config.height as f32,
+            fov: 45.0 * std::f32::consts::PI / 180.0,
+            near: 0.1,
+            far: 100.0,
+        };
+        // TODO: Going to probably want to convert this to position / rotation for our sanity :P 
+
+        let mut camera_uniform = CameraUniform::new();
+        camera_uniform.update_view_proj(&camera);
+        // We don't need to create camera at this point really, just the uniform for the pipelinelayout
+
+        let camera_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Camera Buffer"),
+                contents: bytemuck::cast_slice(&[camera_uniform]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+
+        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { 
+            label: Some("camera_bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer { 
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None
+                    },
+                    count: None,
+                }
+            ],
+        });
+
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                }
+            ],
+            label: Some("camera_bind_group"),
+        });
+
         // Makin' shaders
         let clear_color = wgpu::Color {
             r: 0.1,
@@ -171,9 +363,13 @@ impl State {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout],
+                bind_group_layouts: &[
+                    &texture_bind_group_layout,
+                    &camera_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
+
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -227,6 +423,7 @@ impl State {
         let index_count = INDICES.len() as u32;
 
         Self {
+            last_update_time: SystemTime::now(),
             surface,
             device,
             queue,
@@ -239,6 +436,11 @@ impl State {
             index_count,
             diffuse_bind_group,
             diffuse_texture,
+            camera,
+            camera_controller: CameraController::new(1.5),
+            camera_uniform,
+            camera_buffer,
+            camera_bind_group,
         }
     }
 
@@ -252,6 +454,7 @@ impl State {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
+        self.camera_controller.process_events(event);
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.clear_color = wgpu::Color {
@@ -266,8 +469,12 @@ impl State {
         }
     }
 
-    fn update(&mut self) {
-        // todo: do something
+    fn update(&mut self, elapsed: f32) {
+        self.camera_controller.update_camera(&mut self.camera, elapsed);
+        self.camera_uniform.update_view_proj(&self.camera);
+        self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
+        // ^^ Should probably be creating a separate buffer and copy it's contents
+        // See just above - https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/#a-controller-for-our-camera
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -302,6 +509,8 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.index_count, 0, 0..1);
@@ -352,7 +561,9 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            state.update();
+            let elapsed = state.last_update_time.elapsed().unwrap();
+            state.update(elapsed.as_secs_f32());
+            state.last_update_time = SystemTime::now();
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost
