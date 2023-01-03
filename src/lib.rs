@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use instant::Instant;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -7,6 +7,8 @@ use winit::{
     window::WindowBuilder,
 };
 use glam::*;
+#[cfg(target_arch="wasm32")]
+use wasm_bindgen::prelude::*;
 
 mod texture;
 
@@ -186,7 +188,7 @@ impl CameraUniform {
 }
 
 struct State {
-    last_update_time: SystemTime, 
+    last_update_time: Instant, 
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -423,7 +425,7 @@ impl State {
         let index_count = INDICES.len() as u32;
 
         Self {
-            last_update_time: SystemTime::now(),
+            last_update_time: Instant::now(),
             surface,
             device,
             queue,
@@ -524,11 +526,37 @@ impl State {
     }
 }
 
-// as of yet no web export see learn-wgpu
+#[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
 pub async fn run() {
-    env_logger::init();
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+            console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
+        } else {
+            env_logger::init();
+        }
+    }
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_title("Helia").build(&event_loop).unwrap();
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Winit prevents sizing with CSS, so we have
+        // to set the size manually when on the web
+        use winit::dpi::PhysicalSize;
+        window.set_inner_size(PhysicalSize::new(450, 400));
+
+        use winit::platform::web::WindowExtWebSys;
+        web_sys::window()
+            .and_then(|win| win.document())
+            .and_then(|doc| {
+                let dst = doc.get_element_by_id("helia")?;
+                let canvas = web_sys::Element::from(window.canvas());
+                dst.append_child(&canvas).ok()?;
+                Some(())
+            })
+            .expect("Couldn't append canvas to document body.");
+    }
 
     let mut state = State::new(&window).await;
 
@@ -561,9 +589,9 @@ pub async fn run() {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            let elapsed = state.last_update_time.elapsed().unwrap();
+            let elapsed = state.last_update_time.elapsed();
             state.update(elapsed.as_secs_f32());
-            state.last_update_time = SystemTime::now();
+            state.last_update_time = Instant::now();
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost
