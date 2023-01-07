@@ -54,6 +54,66 @@ const INDICES: &[u16] = &[
     2, 3, 4,
 ];
 
+struct Instance {
+    position: Vec3,
+    rotation: Quat,
+}
+
+impl Instance {
+    fn to_raw(&self) -> InstanceRaw {
+        InstanceRaw { 
+            model: Mat4::from_rotation_translation(self.rotation, self.position).to_cols_array_2d()
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct InstanceRaw {
+    model: [[f32; 4]; 4],
+}
+
+impl InstanceRaw {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
+            // We need to switch from using a step mode of Vertex to Instance
+            // This means that our shaders will only change to use the next
+            // instance when the shader starts processing a new instance
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 5,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
+                // for each vec4. We'll have to reassemble the mat4 in the shader.
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 6,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    shader_location: 7,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
+                    shader_location: 8,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+            ],
+        }
+    }
+}
+
+const NUM_INSTANCES_PER_ROW : u32 = 10;
+const INSTANCE_DISPLACEMENT : Vec3 = Vec3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
+
+
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
     1.0, 0.0, 0.0, 0.0,
@@ -206,6 +266,9 @@ struct State {
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    instances: Vec<Instance>,
+    instance_buffer: wgpu::Buffer,
+    depth_texture: texture::Texture,
 }
 
 impl State {
@@ -254,6 +317,9 @@ impl State {
         };
         // can find valid present modes via: surface.get_supported_modes(&adapter);
         surface.configure(&device, &config);
+
+        // Depth Texture
+        let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         // Makin' Textures
         let diffuse_bytes = include_bytes!("../assets/lena.png");
@@ -378,7 +444,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::desc(), InstanceRaw::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -401,7 +467,13 @@ impl State {
                 // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState { // Could arguably be None for 2D
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
@@ -424,6 +496,31 @@ impl State {
 
         let index_count = INDICES.len() as u32;
 
+        let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
+            (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                let position = Vec3 { x: x as f32, y: 0.0, z: z as f32 } - INSTANCE_DISPLACEMENT;
+
+                let rotation = if position == Vec3::ZERO {
+                    Quat::from_axis_angle(Vec3::Z, 0.0)
+                } else {
+                    Quat::from_axis_angle(position.normalize(), 45.0 * std::f32::consts::PI / 180.0)
+                };
+
+                Instance {
+                    position, rotation
+                }
+            })
+        }).collect::<Vec<_>>();
+
+        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(&instance_data),
+                usage: wgpu::BufferUsages::VERTEX,
+            }
+        );
+
         Self {
             last_update_time: Instant::now(),
             surface,
@@ -443,6 +540,9 @@ impl State {
             camera_uniform,
             camera_buffer,
             camera_bind_group,
+            instances,
+            instance_buffer,
+            depth_texture,
         }
     }
 
@@ -452,6 +552,7 @@ impl State {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
 
@@ -506,7 +607,14 @@ impl State {
                         },
                     }),
                 ],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment{
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
@@ -514,12 +622,31 @@ impl State {
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.index_count, 0, 0..1);
+            render_pass.draw_indexed(0..self.index_count, 0, 0..self.instances.len() as _);
+            // Using the instance buffer is good for things which have all the same uniform properties
+            // but for how Fury prefabs was set up would need to do a different approach (see below)
         }
 
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
+
+        // So I was confused about how to just draw something else again with a different offset, in WebGL you'd just change the MV matrix (camera uniform)
+        // and call draw again, but you can't do that with WebGPU, so...
+        // okay heres a github question with my use pattern / case - https://github.com/gfx-rs/wgpu-rs/issues/542
+        // seems answers followed my line of thinking - seperate bind groups and uniforms, but apparently didn't perform well in the users first attempt
+        // so the example of how to do it well was linked as https://github.com/gfx-rs/wgpu-rs/tree/master/examples/shadow 
+        // which tbf we were aware of the examples we just hadn't searched them 
+        // ^^ looks like for improved performance you need to use the dynamic offsets within a single large buffer with multiple values in
+        // The only real issue is the buffer is statically sized but I suppose we can create a new one in the event of a new object being added.
+        // (rather than creating new bind groups and buffer groups for each)
+        // tbf the actual render code in that example could have the entities with individual bind groups and buffers, but they happen to be the same buffer, presumably
+        // it doesn't cost as much to call set_bind_group with the same bind group but different offset. << Would be good to profile!
+        // The example by its nature has all the entities of the same type together, but if you were adding them externally would want to order them by bind group presuming
+        // that there is a performance benefit for doing so.
+        // Of course you can potentially used draw instanced instead but it'll make shader code considerably more complex
+
         output.present();
 
         Ok(())
