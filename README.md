@@ -1,14 +1,13 @@
 # Helia
 
-A Rust Game Engine!
-
-Initially following Learn Wgpu, before then attempting to broadly replicate Fury's feature set.
-
-## System Dependencies on Linux
-Needed to install cmake, libfontconfig1-dev (and also installed fontconfig may not be required).
+A WIP Rust Game Engine!
 
 ## Build
 
 Standalone: `cargo run`
 
 Web: `wasm-pack build --target web`
+
+## System Dependencies on Linux
+
+Install cmake, fontconfig*, libfontconfig1-dev.
