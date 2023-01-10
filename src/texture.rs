@@ -117,6 +117,8 @@ impl Texture {
                 ..Default::default()
             }
         ); // Don't technically need this to use it as a depth texture but Texture requires it
+        // If we want to render this need to use sampler_comparison uniform type and textureSampleCompare
+        // function - see https://github.com/sotrh/learn-wgpu/tree/master/code/beginner/tutorial8-depth/
 
         Self { texture, view, sampler }
     }
