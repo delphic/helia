@@ -653,8 +653,14 @@ impl State {
     }
 }
 
+pub fn run() {
+    pollster::block_on(run_internal());
+    // Q: how does macroquad manage to make main async?
+    // consider use of https://docs.rs/tokio or https://docs.rs/async-std over pollster
+}
+
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
-pub async fn run() {
+pub async fn run_internal() {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
