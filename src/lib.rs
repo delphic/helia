@@ -51,17 +51,6 @@ const INSTANCE_DISPLACEMENT: Vec3 = Vec3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
 
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-]);
-// ^^ Technically not needed translates from OpenGL space to Metal's
-// without this models centered on 0,0,0 halfway inside the clipping
-// area arguably this is fine.
-
 struct State {
     last_update_time: Instant,
     surface: wgpu::Surface,
