@@ -12,10 +12,14 @@ use winit::{
 
 use crate::camera::*;
 use crate::camera_controller::*;
+use crate::material::*;
+use crate::mesh::*;
 use crate::shader::*;
 
 mod camera;
 mod camera_controller;
+mod material;
+mod mesh;
 mod shader;
 mod texture;
 
@@ -58,15 +62,10 @@ struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
-    shader: ShaderRenderInfo,
+    shader_render_info: ShaderRenderInfo,
     camera_render_info: CameraRenderInfo,
-    // mesh
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    index_count: u32,
-    // material
-    diffuse_bind_group: wgpu::BindGroup,
-    diffuse_texture: texture::Texture,
+    mesh: Mesh,
+    material: Material,
     // camera
     camera: Camera,
     camera_controller: CameraController,
@@ -133,57 +132,10 @@ impl State {
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
 
-        // This is something for the renderer to store all the time (although might need multiple based on texture requirements, c.f. filtering)
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        // This should match the filterable field of the
-                        // corresponding Texture entry above.
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        // This is something for the renderer to create and store *per* texture
-        // We need a bind group per texture, which we can use with the same bind group layout
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
+        let texture_bind_group_layout = Material::create_bind_group_layout(&device);
+        let material = Material::new(diffuse_texture, &texture_bind_group_layout, &device);
 
         // Makin' Camera
-        let clear_color = wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-        };
-
         let camera = Camera {
             eye: (-0.5, 1.0, 2.0).into(),
             target: (-0.5, 0.0, 0.0).into(),
@@ -192,7 +144,12 @@ impl State {
             fov: 45.0 * std::f32::consts::PI / 180.0,
             near: 0.1,
             far: 100.0,
-            clear_color,
+            clear_color: wgpu::Color {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.0,
+            },
         };
         // TODO: Going to probably want to convert this to position / rotation for our sanity :P
 
@@ -211,28 +168,16 @@ impl State {
         // You could conceivably share pipeline layouts between shaders with similar bind group requirements
         // The bind group layouts dependency here mirrors dependency the bind groups in the render function
 
-        let shader = ShaderRenderInfo::new(
+        let shader_render_info = ShaderRenderInfo::new(
             &device,
             wgpu::include_wgsl!("shader.wgsl"),
             config.format,
             &render_pipeline_layout,
         );
 
-        // Mesh and Scene specific
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let mesh = Mesh::new(VERTICES, INDICES, &device);
 
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let index_count = INDICES.len() as u32;
-
+        // prefab / scene
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
@@ -270,12 +215,9 @@ impl State {
             queue,
             config,
             size,
-            shader,
-            vertex_buffer,
-            index_buffer,
-            index_count,
-            diffuse_bind_group,
-            diffuse_texture,
+            shader_render_info,
+            mesh,
+            material,
             camera,
             camera_controller: CameraController::new(1.5),
             camera_render_info,
@@ -358,18 +300,18 @@ impl State {
                 }),
             });
 
-            let shader = &self.shader;
+            let shader = &self.shader_render_info;
             // want to move this to something the shader does
             render_pass.set_pipeline(&shader.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(0, &self.material.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_render_info.bind_group, &[]);
             // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
             // but the locations are
 
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, self.mesh.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.index_count, 0, 0..self.instances.len() as _);
+            render_pass.set_index_buffer(self.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.mesh.index_count, 0, 0..self.instances.len() as _);
             // Using the instance buffer is good for things which have all the same uniform properties
             // but for how Fury prefabs was set up would need to do a different approach (see below)
         }
