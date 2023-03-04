@@ -1,6 +1,6 @@
 use glam::*;
 
-use crate::{camera::Camera, texture};
+use crate::texture;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -85,29 +85,6 @@ impl InstanceRaw {
         }
     }
 }
-
-#[repr(C)] // Required for rust to store data in correct format for shaders
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)] // so we can store in a buffer
-pub struct CameraUniform {
-    // bytemuck requires 4x4 f32 array rather than a Mat4
-    view_proj: [[f32; 4]; 4],
-}
-// Needing to make new structs for each uniform is tiresome, wonder if grayolson's lib might be more helpful than bytemuck
-
-impl CameraUniform {
-    pub fn new() -> Self {
-        Self {
-            view_proj: Mat4::IDENTITY.to_cols_array_2d(),
-        }
-    }
-
-    pub fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix().to_cols_array_2d();
-    }
-}
-
-// This doesn't feel shader specific, this is likely to be universal
-// todo: when camera render info moves out of lib, move this to there.
 
 pub struct ShaderRenderInfo {
     pub render_pipeline: wgpu::RenderPipeline,

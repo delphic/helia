@@ -2,7 +2,7 @@ use glam::*;
 use instant::Instant;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-use wgpu::{util::DeviceExt, Device};
+use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -61,67 +61,6 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
 // ^^ Technically not needed translates from OpenGL space to Metal's
 // without this models centered on 0,0,0 halfway inside the clipping
 // area arguably this is fine.
-
-struct CameraRenderInfo {
-    bind_group_layout: wgpu::BindGroupLayout,
-    buffer: wgpu::Buffer,
-    uniform: CameraUniform,
-    bind_group: wgpu::BindGroup,
-}
-// todo: a better name would be nice
-// only one camera supported currently
-
-impl CameraRenderInfo {
-    fn new(device: &Device, camera: Option<&Camera>) -> Self {
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("camera_bind_group_layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-
-        let mut uniform = CameraUniform::new();
-        if let Some(camera) = camera {
-            uniform.update_view_proj(&camera);
-        }
-
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
-
-        Self {
-            bind_group_layout,
-            buffer,
-            uniform,
-            bind_group,
-        }
-    }
-
-    fn update(&mut self, camera: &Camera, queue: &mut wgpu::Queue) {
-        self.uniform.update_view_proj(camera);
-        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
-        // ^^ Should probably be creating a separate buffer and copy it's contents
-        // See just above - https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/#a-controller-for-our-camera
-    }
-}
 
 struct State {
     last_update_time: Instant,
