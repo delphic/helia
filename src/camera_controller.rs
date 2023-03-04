@@ -1,4 +1,4 @@
-use winit::event::{WindowEvent, KeyboardInput, ElementState, VirtualKeyCode};
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::camera::*;
 
@@ -13,7 +13,7 @@ pub struct CameraController {
 
 impl CameraController {
     pub fn new(speed: f32) -> Self {
-        Self { 
+        Self {
             speed,
             is_forward_pressed: false,
             is_backward_pressed: false,
@@ -25,11 +25,12 @@ impl CameraController {
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state,
-                    virtual_keycode: Some(keycode),
-                    ..
-                },
+                input:
+                    KeyboardInput {
+                        state,
+                        virtual_keycode: Some(keycode),
+                        ..
+                    },
                 ..
             } => {
                 let is_pressed = *state == ElementState::Pressed;

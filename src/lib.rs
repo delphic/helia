@@ -1,4 +1,7 @@
+use glam::*;
 use instant::Instant;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 use wgpu::{util::DeviceExt, Device};
 use winit::{
     event::*,
@@ -6,36 +9,47 @@ use winit::{
     window::Window,
     window::WindowBuilder,
 };
-use glam::*;
-#[cfg(target_arch="wasm32")]
-use wasm_bindgen::prelude::*;
 
-use crate::shader::*;
 use crate::camera::*;
 use crate::camera_controller::*;
+use crate::shader::*;
 
 mod camera;
-mod camera_controller; 
+mod camera_controller;
 mod shader;
 mod texture;
 
 const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
-    Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], }, // B
-    Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 0.949397], }, // C
-    Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 0.84732914], }, // D
-    Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 0.2652641], }, // E
+    Vertex {
+        position: [-0.0868241, 0.49240386, 0.0],
+        tex_coords: [0.4131759, 0.00759614],
+    }, // A
+    Vertex {
+        position: [-0.49513406, 0.06958647, 0.0],
+        tex_coords: [0.0048659444, 0.43041354],
+    }, // B
+    Vertex {
+        position: [-0.21918549, -0.44939706, 0.0],
+        tex_coords: [0.28081453, 0.949397],
+    }, // C
+    Vertex {
+        position: [0.35966998, -0.3473291, 0.0],
+        tex_coords: [0.85967, 0.84732914],
+    }, // D
+    Vertex {
+        position: [0.44147372, 0.2347359, 0.0],
+        tex_coords: [0.9414737, 0.2652641],
+    }, // E
 ];
 
-const INDICES: &[u16] = &[
-    0, 1, 4,
-    1, 2, 4,
-    2, 3, 4,
-];
+const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
-const NUM_INSTANCES_PER_ROW : u32 = 10;
-const INSTANCE_DISPLACEMENT : Vec3 = Vec3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
-
+const NUM_INSTANCES_PER_ROW: u32 = 10;
+const INSTANCE_DISPLACEMENT: Vec3 = Vec3::new(
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+    0.0,
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
+);
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
@@ -45,7 +59,7 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
     0.0, 0.0, 0.5, 1.0,
 ]);
 // ^^ Technically not needed translates from OpenGL space to Metal's
-// without this models centered on 0,0,0 halfway inside the clipping 
+// without this models centered on 0,0,0 halfway inside the clipping
 // area arguably this is fine.
 
 struct CameraRenderInfo {
@@ -59,20 +73,18 @@ struct CameraRenderInfo {
 
 impl CameraRenderInfo {
     fn new(device: &Device, camera: Option<&Camera>) -> Self {
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { 
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("camera_bind_group_layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer { 
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None
-                    },
-                    count: None,
-                }
-            ],
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
         });
 
         let mut uniform = CameraUniform::new();
@@ -80,22 +92,18 @@ impl CameraRenderInfo {
             uniform.update_view_proj(&camera);
         }
 
-        let buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }
-        );      
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
             label: Some("camera_bind_group"),
         });
 
@@ -116,13 +124,13 @@ impl CameraRenderInfo {
 }
 
 struct State {
-    last_update_time: Instant, 
+    last_update_time: Instant,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
-    render_pipeline: wgpu::RenderPipeline,
+    shader: ShaderRenderInfo,
     camera_render_info: CameraRenderInfo,
     // mesh
     vertex_buffer: wgpu::Buffer,
@@ -189,30 +197,32 @@ impl State {
         surface.configure(&device, &config);
 
         // Depth Texture
-        let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         // Makin' Textures
         let diffuse_bytes = include_bytes!("../assets/lena.png");
-        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
+        let diffuse_texture =
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
 
-        // This is something for the renderer to store all the time
-        let texture_bind_group_layout = 
+        // This is something for the renderer to store all the time (although might need multiple based on texture requirements, c.f. filtering)
+        let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture { 
+                        ty: wgpu::BindingType::Texture {
                             multisampled: false,
                             view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true }
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        // This should match the filterable field of the 
+                        // This should match the filterable field of the
                         // corresponding Texture entry above.
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
@@ -223,22 +233,20 @@ impl State {
 
         // This is something for the renderer to create and store *per* texture
         // We need a bind group per texture, which we can use with the same bind group layout
-        let diffuse_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    },
-                ],
-                label: Some("diffuse_bind_group"),
-            }
-        );
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
 
         // Makin' Camera
         let clear_color = wgpu::Color {
@@ -258,12 +266,11 @@ impl State {
             far: 100.0,
             clear_color,
         };
-        // TODO: Going to probably want to convert this to position / rotation for our sanity :P 
+        // TODO: Going to probably want to convert this to position / rotation for our sanity :P
 
         let camera_render_info = CameraRenderInfo::new(&device, Some(&camera));
 
         // Makin' shaders
-        let shader_module = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -274,51 +281,14 @@ impl State {
                 push_constant_ranges: &[],
             });
         // You could conceivably share pipeline layouts between shaders with similar bind group requirements
+        // The bind group layouts dependency here mirrors dependency the bind groups in the render function
 
-        // there is a pipeline per shader
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader_module,
-                entry_point: "vs_main",
-                buffers: &[Vertex::desc(), InstanceRaw::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader_module,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState { // Could arguably be None for 2D
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
+        let shader = ShaderRenderInfo::new(
+            &device,
+            wgpu::include_wgsl!("shader.wgsl"),
+            config.format,
+            &render_pipeline_layout,
+        );
 
         // Mesh and Scene specific
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -335,30 +305,35 @@ impl State {
 
         let index_count = INDICES.len() as u32;
 
-        let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
-            (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                let position = Vec3 { x: x as f32, y: 0.0, z: z as f32 } - INSTANCE_DISPLACEMENT;
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let position = Vec3 {
+                        x: x as f32,
+                        y: 0.0,
+                        z: z as f32,
+                    } - INSTANCE_DISPLACEMENT;
 
-                let rotation = if position == Vec3::ZERO {
-                    Quat::from_axis_angle(Vec3::Z, 0.0)
-                } else {
-                    Quat::from_axis_angle(position.normalize(), 45.0 * std::f32::consts::PI / 180.0)
-                };
+                    let rotation = if position == Vec3::ZERO {
+                        Quat::from_axis_angle(Vec3::Z, 0.0)
+                    } else {
+                        Quat::from_axis_angle(
+                            position.normalize(),
+                            45.0 * std::f32::consts::PI / 180.0,
+                        )
+                    };
 
-                Instance {
-                    position, rotation
-                }
+                    Instance { position, rotation }
+                })
             })
-        }).collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&instance_data),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
         Self {
             last_update_time: Instant::now(),
@@ -367,7 +342,7 @@ impl State {
             queue,
             config,
             size,
-            render_pipeline,
+            shader,
             vertex_buffer,
             index_buffer,
             index_count,
@@ -388,7 +363,8 @@ impl State {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
-            self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+            self.depth_texture =
+                texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
 
@@ -397,11 +373,11 @@ impl State {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.camera.clear_color = wgpu::Color {
-                        r: position.x / self.size.width as f64,
-                        g: 0.2,
-                        b: position.y / self.size.height as f64,
-                        a: 1.0,
-                    };
+                    r: position.x / self.size.width as f64,
+                    g: 0.2,
+                    b: position.y / self.size.height as f64,
+                    a: 1.0,
+                };
                 true
             }
             _ => false,
@@ -409,8 +385,10 @@ impl State {
     }
 
     fn update(&mut self, elapsed: f32) {
-        self.camera_controller.update_camera(&mut self.camera, elapsed);
-        self.camera_render_info.update(&self.camera, &mut self.queue);
+        self.camera_controller
+            .update_camera(&mut self.camera, elapsed);
+        self.camera_render_info
+            .update(&self.camera, &mut self.queue);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -442,7 +420,7 @@ impl State {
                         },
                     }),
                 ],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment{
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
@@ -452,10 +430,13 @@ impl State {
                 }),
             });
 
-            // there's a pipeline per shader I think
-            render_pass.set_pipeline(&self.render_pipeline);
+            let shader = &self.shader;
+            // want to move this to something the shader does
+            render_pass.set_pipeline(&shader.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_render_info.bind_group, &[]);
+            // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
+            // but the locations are
 
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
@@ -472,9 +453,9 @@ impl State {
         // and call draw again, but you can't do that with WebGPU, so...
         // okay heres a github question with my use pattern / case - https://github.com/gfx-rs/wgpu-rs/issues/542
         // seems answers followed my line of thinking - seperate bind groups and uniforms, but apparently didn't perform well in the users first attempt
-        // so the example of how to do it well was linked as https://github.com/gfx-rs/wgpu-rs/tree/master/examples/shadow 
+        // so the example of how to do it well was linked as https://github.com/gfx-rs/wgpu-rs/tree/master/examples/shadow
         // a more up-to-date link would be: https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
-        // which tbf we were aware of the examples we just hadn't searched them 
+        // which tbf we were aware of the examples we just hadn't searched them
         // ^^ looks like for improved performance you need to use the dynamic offsets within a single large buffer with multiple values in
         // The only real issue is the buffer is statically sized but I suppose we can create a new one in the event of a new object being added.
         // (rather than creating new bind groups and buffer groups for each)
@@ -496,7 +477,7 @@ pub fn run() {
     // consider use of https://docs.rs/tokio or https://docs.rs/async-std over pollster
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run_internal() {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
@@ -507,7 +488,10 @@ pub async fn run_internal() {
         }
     }
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().with_title("Helia").build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_title("Helia")
+        .build(&event_loop)
+        .unwrap();
 
     #[cfg(target_arch = "wasm32")]
     {

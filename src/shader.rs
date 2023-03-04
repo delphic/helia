@@ -1,6 +1,6 @@
 use glam::*;
 
-use crate::camera::Camera;
+use crate::{camera::Camera, texture};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -37,8 +37,8 @@ pub struct Instance {
 
 impl Instance {
     pub fn to_raw(&self) -> InstanceRaw {
-        InstanceRaw { 
-            model: Mat4::from_rotation_translation(self.rotation, self.position).to_cols_array_2d()
+        InstanceRaw {
+            model: Mat4::from_rotation_translation(self.rotation, self.position).to_cols_array_2d(),
         }
     }
 }
@@ -108,3 +108,67 @@ impl CameraUniform {
 
 // This doesn't feel shader specific, this is likely to be universal
 // todo: when camera render info moves out of lib, move this to there.
+
+pub struct ShaderRenderInfo {
+    pub render_pipeline: wgpu::RenderPipeline,
+}
+
+impl ShaderRenderInfo {
+    pub fn new(
+        device: &wgpu::Device,
+        module_descriptor: wgpu::ShaderModuleDescriptor,
+        texture_format: wgpu::TextureFormat,
+        layout: &wgpu::PipelineLayout,
+    ) -> Self {
+        let shader_module = device.create_shader_module(module_descriptor);
+        // there is a pipeline per shader
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(layout),
+            vertex: wgpu::VertexState {
+                module: &shader_module,
+                entry_point: "vs_main",
+                buffers: &[Vertex::desc(), InstanceRaw::desc()],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader_module,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: texture_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                // Could arguably be None for 2D
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
+        Self { render_pipeline }
+    }
+
+    // todo: more methods for making use of render_pipeline
+}

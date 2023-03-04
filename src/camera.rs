@@ -1,5 +1,5 @@
-use glam::*;
 use crate::OPENGL_TO_WGPU_MATRIX;
+use glam::*;
 
 pub struct Camera {
     pub eye: Vec3,
