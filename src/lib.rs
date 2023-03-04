@@ -10,35 +10,14 @@ use glam::*;
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
 
+use crate::shader::*;
+use crate::camera::*;
+use crate::camera_controller::*;
+
+mod camera;
+mod camera_controller; 
+mod shader;
 mod texture;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-impl Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
-}
 
 const VERTICES: &[Vertex] = &[
     Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
@@ -53,62 +32,6 @@ const INDICES: &[u16] = &[
     1, 2, 4,
     2, 3, 4,
 ];
-
-struct Instance {
-    position: Vec3,
-    rotation: Quat,
-}
-
-impl Instance {
-    fn to_raw(&self) -> InstanceRaw {
-        InstanceRaw { 
-            model: Mat4::from_rotation_translation(self.rotation, self.position).to_cols_array_2d()
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct InstanceRaw {
-    model: [[f32; 4]; 4],
-}
-
-impl InstanceRaw {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        use std::mem;
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
-            // We need to switch from using a step mode of Vertex to Instance
-            // This means that our shaders will only change to use the next
-            // instance when the shader starts processing a new instance
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-                // for each vec4. We'll have to reassemble the mat4 in the shader.
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 6,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                    shader_location: 7,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                    shader_location: 8,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-            ],
-        }
-    }
-}
 
 const NUM_INSTANCES_PER_ROW : u32 = 10;
 const INSTANCE_DISPLACEMENT : Vec3 = Vec3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
@@ -125,127 +48,6 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
 // without this models centered on 0,0,0 halfway inside the clipping 
 // area arguably this is fine.
 
-struct Camera {
-    eye: Vec3,
-    target: Vec3,
-    up: Vec3,
-    aspect_ratio: f32,
-    fov: f32,
-    near: f32,
-    far: f32,
-}
-
-impl Camera {
-    fn build_view_projection_matrix(&self) -> Mat4 {
-        let view = Mat4::look_at_rh(self.eye, self.target, self.up);
-        let proj = Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far);
-        OPENGL_TO_WGPU_MATRIX * proj * view
-    }
-}
-
-struct CameraController {
-    speed: f32,
-    is_forward_pressed: bool,
-    is_backward_pressed: bool,
-    is_left_pressed: bool,
-    is_right_pressed: bool,
-}
-// TODO: Move most of that ^^ to input map
-
-impl CameraController {
-    fn new(speed: f32) -> Self {
-        Self { 
-            speed,
-            is_forward_pressed: false,
-            is_backward_pressed: false,
-            is_left_pressed: false,
-            is_right_pressed: false,
-        }
-    }
-
-    fn process_events(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state,
-                    virtual_keycode: Some(keycode),
-                    ..
-                },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
-    }
-
-    // Orbit camera
-    fn update_camera(&self, camera: &mut Camera, elapsed: f32) {
-        let to_target = camera.target - camera.eye;
-        let forward = to_target.normalize();
-        let distance_to_target = to_target.length();
-        let delta = self.speed * elapsed;
-
-        if self.is_forward_pressed && distance_to_target > delta {
-            camera.eye += forward * delta;
-        }
-        if self.is_backward_pressed {
-            camera.eye -= forward * delta;
-        }
-
-        // Rotate which is probably fine cause small angle approx.
-        let right = forward.cross(camera.up);
-        let to_target = camera.target - camera.eye;
-        let distance_to_target = to_target.length();
-
-        if self.is_right_pressed {
-            camera.eye = camera.target - (forward + right * delta).normalize() * distance_to_target;
-        }
-        if self.is_left_pressed {
-            camera.eye = camera.target - (forward - right * delta).normalize() * distance_to_target;
-        }
-    }
-}
-
-
-#[repr(C)] // Required for rust to store data in correct format for shaders
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)] // so we can store in a buffer
-struct CameraUniform {
-    // bytemuck requires 4x4 f32 array rather than a Mat4
-    view_proj: [[f32; 4]; 4],
-}
-// Needing to make new structs for each uniform is tiresome, wonder if grayolson's lib might be more helpful than bytemuck
-
-impl CameraUniform {
-    fn new() -> Self {
-        Self {
-            view_proj: Mat4::IDENTITY.to_cols_array_2d(),
-        }
-    }
-
-    fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix().to_cols_array_2d();
-    }
-}
 
 struct State {
     last_update_time: Instant, 
@@ -256,18 +58,23 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
+    // mesh
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     index_count: u32,
+    // material
     diffuse_bind_group: wgpu::BindGroup,
     diffuse_texture: texture::Texture,
+    // camera
     camera: Camera,
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    // scene?
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
+    // camera?
     depth_texture: texture::Texture,
 }
 
@@ -637,6 +444,7 @@ impl State {
         // okay heres a github question with my use pattern / case - https://github.com/gfx-rs/wgpu-rs/issues/542
         // seems answers followed my line of thinking - seperate bind groups and uniforms, but apparently didn't perform well in the users first attempt
         // so the example of how to do it well was linked as https://github.com/gfx-rs/wgpu-rs/tree/master/examples/shadow 
+        // a more up-to-date link would be: https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
         // which tbf we were aware of the examples we just hadn't searched them 
         // ^^ looks like for improved performance you need to use the dynamic offsets within a single large buffer with multiple values in
         // The only real issue is the buffer is statically sized but I suppose we can create a new one in the event of a new object being added.
