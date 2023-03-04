@@ -9,6 +9,7 @@ pub struct Camera {
     pub fov: f32,
     pub near: f32,
     pub far: f32,
+    pub clear_color: wgpu::Color,
 }
 // todo: move from eye / target to position / rotation
 

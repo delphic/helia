@@ -30,7 +30,6 @@ impl Vertex {
     }
 }
 
-
 pub struct Instance {
     pub position: Vec3,
     pub rotation: Quat,
@@ -106,3 +105,6 @@ impl CameraUniform {
         self.view_proj = camera.build_view_projection_matrix().to_cols_array_2d();
     }
 }
+
+// This doesn't feel shader specific, this is likely to be universal
+// todo: when camera render info moves out of lib, move this to there.

@@ -1,5 +1,5 @@
 use instant::Instant;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, Device};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -48,6 +48,72 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
 // without this models centered on 0,0,0 halfway inside the clipping 
 // area arguably this is fine.
 
+struct CameraRenderInfo {
+    bind_group_layout: wgpu::BindGroupLayout,
+    buffer: wgpu::Buffer,
+    uniform: CameraUniform,
+    bind_group: wgpu::BindGroup,
+}
+// todo: a better name would be nice
+// only one camera supported currently
+
+impl CameraRenderInfo {
+    fn new(device: &Device, camera: Option<&Camera>) -> Self {
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { 
+            label: Some("camera_bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer { 
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None
+                    },
+                    count: None,
+                }
+            ],
+        });
+
+        let mut uniform = CameraUniform::new();
+        if let Some(camera) = camera {
+            uniform.update_view_proj(&camera);
+        }
+
+        let buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Camera Buffer"),
+                contents: bytemuck::cast_slice(&[uniform]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }
+        );      
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }
+            ],
+            label: Some("camera_bind_group"),
+        });
+
+        Self {
+            bind_group_layout,
+            buffer,
+            uniform,
+            bind_group,
+        }
+    }
+
+    fn update(&mut self, camera: &Camera, queue: &mut wgpu::Queue) {
+        self.uniform.update_view_proj(camera);
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
+        // ^^ Should probably be creating a separate buffer and copy it's contents
+        // See just above - https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/#a-controller-for-our-camera
+    }
+}
 
 struct State {
     last_update_time: Instant, 
@@ -56,8 +122,8 @@ struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
-    clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
+    camera_render_info: CameraRenderInfo,
     // mesh
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -68,13 +134,10 @@ struct State {
     // camera
     camera: Camera,
     camera_controller: CameraController,
-    camera_uniform: CameraUniform,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
     // scene?
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
-    // camera?
+    // window
     depth_texture: texture::Texture,
 }
 
@@ -132,6 +195,7 @@ impl State {
         let diffuse_bytes = include_bytes!("../assets/lena.png");
         let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
 
+        // This is something for the renderer to store all the time
         let texture_bind_group_layout = 
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
@@ -157,7 +221,8 @@ impl State {
                 label: Some("texture_bind_group_layout"),
             });
 
-        // We need a bing group per texture, which we can use with the same bind group layout
+        // This is something for the renderer to create and store *per* texture
+        // We need a bind group per texture, which we can use with the same bind group layout
         let diffuse_bind_group = device.create_bind_group(
             &wgpu::BindGroupDescriptor {
                 layout: &texture_bind_group_layout,
@@ -176,6 +241,13 @@ impl State {
         );
 
         // Makin' Camera
+        let clear_color = wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        };
+
         let camera = Camera {
             eye: (-0.5, 1.0, 2.0).into(),
             target: (-0.5, 0.0, 0.0).into(),
@@ -184,77 +256,36 @@ impl State {
             fov: 45.0 * std::f32::consts::PI / 180.0,
             near: 0.1,
             far: 100.0,
+            clear_color,
         };
         // TODO: Going to probably want to convert this to position / rotation for our sanity :P 
 
-        let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-        // We don't need to create camera at this point really, just the uniform for the pipelinelayout
-
-        let camera_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[camera_uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { 
-            label: Some("camera_bind_group_layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer { 
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None
-                    },
-                    count: None,
-                }
-            ],
-        });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
-                }
-            ],
-            label: Some("camera_bind_group"),
-        });
+        let camera_render_info = CameraRenderInfo::new(&device, Some(&camera));
 
         // Makin' shaders
-        let clear_color = wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-        };
-
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+        let shader_module = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
-                    &camera_bind_group_layout,
+                    &camera_render_info.bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
+        // You could conceivably share pipeline layouts between shaders with similar bind group requirements
 
+        // there is a pipeline per shader
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &shader_module,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc(), InstanceRaw::desc()],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: &shader_module,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
@@ -289,6 +320,7 @@ impl State {
             multiview: None,
         });
 
+        // Mesh and Scene specific
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
@@ -335,7 +367,6 @@ impl State {
             queue,
             config,
             size,
-            clear_color,
             render_pipeline,
             vertex_buffer,
             index_buffer,
@@ -344,9 +375,7 @@ impl State {
             diffuse_texture,
             camera,
             camera_controller: CameraController::new(1.5),
-            camera_uniform,
-            camera_buffer,
-            camera_bind_group,
+            camera_render_info,
             instances,
             instance_buffer,
             depth_texture,
@@ -367,12 +396,12 @@ impl State {
         self.camera_controller.process_events(event);
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.clear_color = wgpu::Color {
-                    r: position.x / self.size.width as f64,
-                    g: 0.2,
-                    b: position.y / self.size.height as f64,
-                    a: 1.0,
-                };
+                self.camera.clear_color = wgpu::Color {
+                        r: position.x / self.size.width as f64,
+                        g: 0.2,
+                        b: position.y / self.size.height as f64,
+                        a: 1.0,
+                    };
                 true
             }
             _ => false,
@@ -381,10 +410,7 @@ impl State {
 
     fn update(&mut self, elapsed: f32) {
         self.camera_controller.update_camera(&mut self.camera, elapsed);
-        self.camera_uniform.update_view_proj(&self.camera);
-        self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
-        // ^^ Should probably be creating a separate buffer and copy it's contents
-        // See just above - https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/#a-controller-for-our-camera
+        self.camera_render_info.update(&self.camera, &mut self.queue);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -401,6 +427,8 @@ impl State {
             });
 
         {
+            let camera = &self.camera;
+
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[
@@ -409,7 +437,7 @@ impl State {
                         view: &view,
                         resolve_target: None,
                         ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(self.clear_color),
+                            load: wgpu::LoadOp::Clear(camera.clear_color),
                             store: true,
                         },
                     }),
@@ -424,9 +452,10 @@ impl State {
                 }),
             });
 
+            // there's a pipeline per shader I think
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_render_info.bind_group, &[]);
 
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
