@@ -16,69 +16,60 @@ use crate::material::*;
 use crate::mesh::*;
 use crate::shader::*;
 
-mod camera;
+pub mod camera;
 mod camera_controller;
-mod material;
-mod mesh;
-mod shader;
-mod texture;
+pub mod material;
+pub mod mesh;
+pub mod shader;
+pub mod texture;
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        tex_coords: [0.4131759, 0.00759614],
-    }, // A
-    Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        tex_coords: [0.0048659444, 0.43041354],
-    }, // B
-    Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        tex_coords: [0.28081453, 0.949397],
-    }, // C
-    Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        tex_coords: [0.85967, 0.84732914],
-    }, // D
-    Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        tex_coords: [0.9414737, 0.2652641],
-    }, // E
-];
-
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
-
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: Vec3 = Vec3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
-
-struct State {
+pub struct State {
     last_update_time: Instant,
     surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    pub size: winit::dpi::PhysicalSize<u32>,
     depth_texture: texture::Texture,
-    scene: Scene,
+    pub scene: Scene,
     camera_controller: Option<CameraController>, // this should be in game
+    pub texture_bind_group_layout: wgpu::BindGroupLayout, // this shouldn't be public
 }
 
-struct Scene {
+pub struct Scene {
     shader_render_info: ShaderRenderInfo,
     camera_render_info: CameraRenderInfo,
-    camera: Camera,
-    prefabs: Vec<Prefab>
+    pub camera: Camera,
+    pub prefabs: Vec<Prefab>,
 }
 
-struct Prefab {
-    mesh: Mesh,
-    material: Material,
-    instances: Vec<Instance>,
-    instance_buffer: wgpu::Buffer,
+pub struct Prefab {
+    pub mesh: Mesh,
+    pub material: Material,
+    pub instances: Vec<Instance>,
+    pub instance_buffer: wgpu::Buffer,
+}
+
+impl Prefab {
+    pub fn new(
+        mesh: Mesh,
+        material: Material,
+        instances: Vec<Instance>,
+        device: &wgpu::Device,
+    ) -> Self {
+        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        Self {
+            mesh,
+            material,
+            instances,
+            instance_buffer,
+        }
+    }
 }
 
 // okay so resource id for mesh and material
@@ -124,9 +115,6 @@ impl State {
             .await
             .unwrap();
 
-        // This the initial wait so arguably this is where the first callback should happen, although I think we probably want
-        // the surface and depth texture
-
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_supported_formats(&adapter)[0],
@@ -141,13 +129,6 @@ impl State {
         // Depth Texture
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-
-        // This is probably where we want to actually do our first callback - we have a device, surface, queue etc
-
-        // This should be in game code, setup our window and surface now we want to load our texture
-        // setup our camera et al
-
-        // Arguably we could set up the camera bind group (we're defo going to need one) and maybe the shader
 
         let texture_bind_group_layout = Material::create_bind_group_layout(&device);
 
@@ -164,7 +145,6 @@ impl State {
                 push_constant_ranges: &[],
             });
 
-
         let shader_render_info = ShaderRenderInfo::new(
             &device,
             wgpu::include_wgsl!("shader.wgsl"),
@@ -174,83 +154,12 @@ impl State {
         // You could conceivably share pipeline layouts between shaders with similar bind group requirements
         // The bind group layouts dependency here mirrors dependency the bind groups in the render function
 
-                // Makin' Camera
-        let camera = Camera {
-            eye: (-0.5, 1.0, 2.0).into(),
-            target: (-0.5, 0.0, 0.0).into(),
-            up: Vec3::Y,
-            aspect_ratio: config.width as f32 / config.height as f32,
-            fov: 45.0 * std::f32::consts::PI / 180.0,
-            near: 0.1,
-            far: 100.0,
-            clear_color: wgpu::Color {
-                r: 0.1,
-                g: 0.2,
-                b: 0.3,
-                a: 1.0,
-            },
-        };
-        // ^^ todo: Camera::Default instead and move this to game
-
-        let mut scene = Scene {
+        let scene = Scene {
             shader_render_info,
             camera_render_info,
-            camera,
-            prefabs: Vec::new()
+            camera: Camera::default(),
+            prefabs: Vec::new(),
         };
-
-        // Here is the final point we could do the call back
-        // Makin' Textures
-        let diffuse_bytes = include_bytes!("../assets/lena.png");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
-
-        let material = Material::new(diffuse_texture, &texture_bind_group_layout, &device);
-        // ^^ arguably material should contain a link to the shader it executes (an id)
-
-
-        // TODO: Going to probably want to convert this to position / rotation for our sanity :P
-        let mesh = Mesh::new(VERTICES, INDICES, &device);
-
-        // prefab / scene
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = Vec3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
-
-                    let rotation = if position == Vec3::ZERO {
-                        Quat::from_axis_angle(Vec3::Z, 0.0)
-                    } else {
-                        Quat::from_axis_angle(
-                            position.normalize(),
-                            45.0 * std::f32::consts::PI / 180.0,
-                        )
-                    };
-
-                    Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let prefab = Prefab {
-            mesh,
-            material,
-            instances,
-            instance_buffer,
-        };
-
-        scene.prefabs.push(prefab);
 
         Self {
             last_update_time: Instant::now(),
@@ -262,6 +171,7 @@ impl State {
             depth_texture,
             scene,
             camera_controller: Some(CameraController::new(1.5)),
+            texture_bind_group_layout,
         }
     }
 
@@ -296,10 +206,10 @@ impl State {
 
     fn update(&mut self, elapsed: f32) {
         if let Some(camera_controller) = &self.camera_controller {
-            camera_controller
-                .update_camera(&mut self.scene.camera, elapsed);
+            camera_controller.update_camera(&mut self.scene.camera, elapsed);
         }
-        self.scene.camera_render_info
+        self.scene
+            .camera_render_info
             .update(&self.scene.camera, &mut self.queue);
         // ^^ todo: move to a scene update(?)
     }
@@ -358,9 +268,15 @@ impl State {
 
                 render_pass.set_vertex_buffer(0, prefab.mesh.vertex_buffer.slice(..));
                 render_pass.set_vertex_buffer(1, prefab.instance_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(prefab.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                render_pass.draw_indexed(0..prefab.mesh.index_count, 0, 0..prefab.instances.len() as _);
+                render_pass.set_index_buffer(
+                    prefab.mesh.index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint16,
+                );
+                render_pass.draw_indexed(
+                    0..prefab.mesh.index_count,
+                    0,
+                    0..prefab.instances.len() as _,
+                );
                 // Using the instance buffer is good for things which have all the same uniform properties
                 // but for how Fury prefabs was set up would need to do a different approach (see below)
             }
@@ -391,14 +307,22 @@ impl State {
     }
 }
 
-pub fn run() {
-    pollster::block_on(run_internal());
+pub fn run<F>(init: F)
+where
+    F: FnMut(&mut State),
+{
+    // todo: pass functions to run and run_internal which are called after init and then every frame
+    // for now they can just take mut State as an argument
+    pollster::block_on(run_internal(init));
     // Q: how does macroquad manage to make main async?
     // consider use of https://docs.rs/tokio or https://docs.rs/async-std over pollster
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub async fn run_internal() {
+pub async fn run_internal<F>(mut init: F)
+where
+    F: FnMut(&mut State),
+{
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -433,6 +357,8 @@ pub async fn run_internal() {
     }
 
     let mut state = State::new(&window).await;
+
+    init(&mut state);
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {

@@ -32,6 +32,21 @@ impl Camera {
     }
 }
 
+impl Default for Camera {
+    fn default() -> Self {
+        Self {
+            eye: (0.0, 0.0, 2.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
+            up: Vec3::Y,
+            aspect_ratio: 1.0,
+            fov: 60.0 * std::f32::consts::PI / 180.0,
+            near: 0.01,
+            far: 1000.0,
+            clear_color: wgpu::Color::BLACK,
+        }
+    }
+}
+
 #[repr(C)] // Required for rust to store data in correct format for shaders
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)] // so we can store in a buffer
 pub struct CameraUniform {
