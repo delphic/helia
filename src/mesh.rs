@@ -1,5 +1,5 @@
-use wgpu::Buffer;
 use wgpu::util::DeviceExt;
+use wgpu::Buffer;
 
 use crate::shader::Vertex;
 
@@ -28,5 +28,5 @@ impl Mesh {
             index_count: indices.len() as u32,
         }
     }
-    // todo: generic on Vertex type 
+    // todo: generic on Vertex type
 }

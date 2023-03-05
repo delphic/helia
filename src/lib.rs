@@ -62,19 +62,31 @@ struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
+    depth_texture: texture::Texture,
+    scene: Scene,
+    camera_controller: Option<CameraController>, // this should be in game
+}
+
+struct Scene {
     shader_render_info: ShaderRenderInfo,
     camera_render_info: CameraRenderInfo,
+    camera: Camera,
+    prefabs: Vec<Prefab>
+}
+
+struct Prefab {
     mesh: Mesh,
     material: Material,
-    // camera
-    camera: Camera,
-    camera_controller: CameraController,
-    // scene?
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
-    // window
-    depth_texture: texture::Texture,
 }
+
+// okay so resource id for mesh and material
+// then render object (?) with mesh, and material id
+// and an instance
+// we have a list of render objects, nope this doesn't map well to instances
+// we want a 'prefab'ish concept. which can store instances as well as the mesh / material
+// data
 
 impl State {
     // Creating some of the wgpu types requires async code
@@ -112,6 +124,9 @@ impl State {
             .await
             .unwrap();
 
+        // This the initial wait so arguably this is where the first callback should happen, although I think we probably want
+        // the surface and depth texture
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_supported_formats(&adapter)[0],
@@ -127,15 +142,39 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        // Makin' Textures
-        let diffuse_bytes = include_bytes!("../assets/lena.png");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
+        // This is probably where we want to actually do our first callback - we have a device, surface, queue etc
+
+        // This should be in game code, setup our window and surface now we want to load our texture
+        // setup our camera et al
+
+        // Arguably we could set up the camera bind group (we're defo going to need one) and maybe the shader
 
         let texture_bind_group_layout = Material::create_bind_group_layout(&device);
-        let material = Material::new(diffuse_texture, &texture_bind_group_layout, &device);
 
-        // Makin' Camera
+        let camera_render_info = CameraRenderInfo::new(&device, None);
+
+        // Makin' shaders
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    &texture_bind_group_layout,
+                    &camera_render_info.bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+            });
+
+
+        let shader_render_info = ShaderRenderInfo::new(
+            &device,
+            wgpu::include_wgsl!("shader.wgsl"),
+            config.format,
+            &render_pipeline_layout,
+        );
+        // You could conceivably share pipeline layouts between shaders with similar bind group requirements
+        // The bind group layouts dependency here mirrors dependency the bind groups in the render function
+
+                // Makin' Camera
         let camera = Camera {
             eye: (-0.5, 1.0, 2.0).into(),
             target: (-0.5, 0.0, 0.0).into(),
@@ -151,30 +190,26 @@ impl State {
                 a: 1.0,
             },
         };
+        // ^^ todo: Camera::Default instead and move this to game
+
+        let mut scene = Scene {
+            shader_render_info,
+            camera_render_info,
+            camera,
+            prefabs: Vec::new()
+        };
+
+        // Here is the final point we could do the call back
+        // Makin' Textures
+        let diffuse_bytes = include_bytes!("../assets/lena.png");
+        let diffuse_texture =
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
+
+        let material = Material::new(diffuse_texture, &texture_bind_group_layout, &device);
+        // ^^ arguably material should contain a link to the shader it executes (an id)
+
+
         // TODO: Going to probably want to convert this to position / rotation for our sanity :P
-
-        let camera_render_info = CameraRenderInfo::new(&device, Some(&camera));
-
-        // Makin' shaders
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &texture_bind_group_layout,
-                    &camera_render_info.bind_group_layout,
-                ],
-                push_constant_ranges: &[],
-            });
-        // You could conceivably share pipeline layouts between shaders with similar bind group requirements
-        // The bind group layouts dependency here mirrors dependency the bind groups in the render function
-
-        let shader_render_info = ShaderRenderInfo::new(
-            &device,
-            wgpu::include_wgsl!("shader.wgsl"),
-            config.format,
-            &render_pipeline_layout,
-        );
-
         let mesh = Mesh::new(VERTICES, INDICES, &device);
 
         // prefab / scene
@@ -208,6 +243,15 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let prefab = Prefab {
+            mesh,
+            material,
+            instances,
+            instance_buffer,
+        };
+
+        scene.prefabs.push(prefab);
+
         Self {
             last_update_time: Instant::now(),
             surface,
@@ -215,15 +259,9 @@ impl State {
             queue,
             config,
             size,
-            shader_render_info,
-            mesh,
-            material,
-            camera,
-            camera_controller: CameraController::new(1.5),
-            camera_render_info,
-            instances,
-            instance_buffer,
             depth_texture,
+            scene,
+            camera_controller: Some(CameraController::new(1.5)),
         }
     }
 
@@ -239,10 +277,12 @@ impl State {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event);
+        if let Some(camera_controller) = &mut self.camera_controller {
+            camera_controller.process_events(event);
+        }
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.camera.clear_color = wgpu::Color {
+                self.scene.camera.clear_color = wgpu::Color {
                     r: position.x / self.size.width as f64,
                     g: 0.2,
                     b: position.y / self.size.height as f64,
@@ -255,10 +295,13 @@ impl State {
     }
 
     fn update(&mut self, elapsed: f32) {
-        self.camera_controller
-            .update_camera(&mut self.camera, elapsed);
-        self.camera_render_info
-            .update(&self.camera, &mut self.queue);
+        if let Some(camera_controller) = &self.camera_controller {
+            camera_controller
+                .update_camera(&mut self.scene.camera, elapsed);
+        }
+        self.scene.camera_render_info
+            .update(&self.scene.camera, &mut self.queue);
+        // ^^ todo: move to a scene update(?)
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -275,7 +318,7 @@ impl State {
             });
 
         {
-            let camera = &self.camera;
+            let camera = &self.scene.camera;
 
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -300,20 +343,27 @@ impl State {
                 }),
             });
 
-            let shader = &self.shader_render_info;
-            // want to move this to something the shader does
-            render_pass.set_pipeline(&shader.render_pipeline);
-            render_pass.set_bind_group(0, &self.material.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_render_info.bind_group, &[]);
-            // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
-            // but the locations are
+            for prefab in self.scene.prefabs.iter() {
+                // todo: only do this if there are any instances
 
-            render_pass.set_vertex_buffer(0, self.mesh.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(self.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.mesh.index_count, 0, 0..self.instances.len() as _);
-            // Using the instance buffer is good for things which have all the same uniform properties
-            // but for how Fury prefabs was set up would need to do a different approach (see below)
+                let shader = &self.scene.shader_render_info;
+                // want to move this to something the shader does
+                render_pass.set_pipeline(&shader.render_pipeline);
+                // ^^ todo: move to material
+
+                render_pass.set_bind_group(0, &prefab.material.diffuse_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.scene.camera_render_info.bind_group, &[]);
+                // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
+                // but the locations are
+
+                render_pass.set_vertex_buffer(0, prefab.mesh.vertex_buffer.slice(..));
+                render_pass.set_vertex_buffer(1, prefab.instance_buffer.slice(..));
+                render_pass
+                    .set_index_buffer(prefab.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.draw_indexed(0..prefab.mesh.index_count, 0, 0..prefab.instances.len() as _);
+                // Using the instance buffer is good for things which have all the same uniform properties
+                // but for how Fury prefabs was set up would need to do a different approach (see below)
+            }
         }
 
         // submit will accept anything that implements IntoIter

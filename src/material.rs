@@ -9,7 +9,11 @@ pub struct Material {
 // this is currently more accurately MaterialRenderInfo as we've been calling other things
 
 impl Material {
-    pub fn new(diffuse_texture: texture::Texture, bind_group_layout: &wgpu::BindGroupLayout, device: &wgpu::Device) -> Self {
+    pub fn new(
+        diffuse_texture: texture::Texture,
+        bind_group_layout: &wgpu::BindGroupLayout,
+        device: &wgpu::Device,
+    ) -> Self {
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             entries: &[
