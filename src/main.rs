@@ -139,4 +139,5 @@ fn main() {
     run(Box::new(game_state));
 }
 
+// Q: how does macroquad manage to make main async?
 // TODO: Remove main.rs and create /examples

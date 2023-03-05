@@ -1,7 +1,5 @@
 use glam::*;
 use instant::Instant;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -281,16 +279,30 @@ pub trait Game {
     fn input(&mut self, state: &mut State, event: &WindowEvent) -> bool;
 }
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+pub fn wasm_start() {
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+            console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
+            log::error!("Unable to run as no game info"); 
+        }
+    }
+    // We have a bit of a problem here, wasm_bindgen(start) seems to only work from within lib.rs
+    // but clearly the library isn't the game, previously we just ran run_internal directly
+    // but that's when all logic was within lib.rs and main was just a trigger point
+    // will moving to examples work? how does bevy do this?
+}
+
 pub fn run(game: Box<dyn Game>) {
-    // todo: pass functions to run and run_internal which are called after init and then every frame
-    // for now they can just take mut State as an argument
     pollster::block_on(run_internal(game));
-    // Q: how does macroquad manage to make main async?
     // consider use of https://docs.rs/tokio or https://docs.rs/async-std over pollster
 }
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub async fn run_internal(mut game: Box<dyn Game>) {
+async fn run_internal(mut game: Box<dyn Game>) {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -299,6 +311,7 @@ pub async fn run_internal(mut game: Box<dyn Game>) {
             env_logger::init();
         }
     }
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Helia")
