@@ -1,3 +1,4 @@
+use camera_controller::*;
 use glam::*;
 use helia::{
     camera::Camera,
@@ -6,6 +7,9 @@ use helia::{
     shader::{Instance, Vertex},
     *,
 };
+use winit::event::WindowEvent;
+
+mod camera_controller;
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -39,63 +43,100 @@ const INSTANCE_DISPLACEMENT: Vec3 = Vec3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
 
-fn main() {
-    run(init);
+pub struct GameState {
+    camera_controller: Option<CameraController>,
 }
 
-fn init(state: &mut State) {
-    let device = &state.device;
-    let queue = &state.queue;
+impl Game for GameState {
+    fn init(&mut self, state: &mut State) {
+        let device = &state.device;
+        let queue = &state.queue;
 
-    let camera = Camera {
-        eye: (-0.5, 1.0, 2.0).into(),
-        target: (-0.5, 0.0, 0.0).into(),
-        up: Vec3::Y,
-        aspect_ratio: state.size.width as f32 / state.size.height as f32,
-        fov: 60.0 * std::f32::consts::PI / 180.0,
-        near: 0.01,
-        far: 1000.0,
-        clear_color: wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-        },
-    };
+        let camera = Camera {
+            eye: (-0.5, 1.0, 2.0).into(),
+            target: (-0.5, 0.0, 0.0).into(),
+            up: Vec3::Y,
+            aspect_ratio: state.size.width as f32 / state.size.height as f32,
+            fov: 60.0 * std::f32::consts::PI / 180.0,
+            near: 0.01,
+            far: 1000.0,
+            clear_color: wgpu::Color {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.0,
+            },
+        };
 
-    state.scene.camera = camera;
+        state.scene.camera = camera;
 
-    // Makin' Textures
-    let diffuse_bytes = include_bytes!("../assets/lena.png");
-    let diffuse_texture =
-        texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
-    let material = Material::new(diffuse_texture, &state.texture_bind_group_layout, &device);
-    // ^^ arguably material should contain a link to the shader it executes (an id)
-    // ^^ todo: remove need for texture_bind_group_layout from the call at this location
+        // Makin' Textures
+        let diffuse_bytes = include_bytes!("../assets/lena.png");
+        let diffuse_texture =
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
+        let material = Material::new(diffuse_texture, &state.texture_bind_group_layout, &device);
+        // ^^ arguably material should contain a link to the shader it executes (an id)
+        // ^^ todo: remove need for texture_bind_group_layout from the call at this location
 
-    let mesh = Mesh::new(VERTICES, INDICES, &device);
-    let instances = (0..NUM_INSTANCES_PER_ROW)
-        .flat_map(|z| {
-            (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                let position = Vec3 {
-                    x: x as f32,
-                    y: 0.0,
-                    z: z as f32,
-                } - INSTANCE_DISPLACEMENT;
+        let mesh = Mesh::new(VERTICES, INDICES, &device);
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let position = Vec3 {
+                        x: x as f32,
+                        y: 0.0,
+                        z: z as f32,
+                    } - INSTANCE_DISPLACEMENT;
 
-                let rotation = if position == Vec3::ZERO {
-                    Quat::from_axis_angle(Vec3::Z, 0.0)
-                } else {
-                    Quat::from_axis_angle(position.normalize(), 45.0 * std::f32::consts::PI / 180.0)
-                };
+                    let rotation = if position == Vec3::ZERO {
+                        Quat::from_axis_angle(Vec3::Z, 0.0)
+                    } else {
+                        Quat::from_axis_angle(
+                            position.normalize(),
+                            45.0 * std::f32::consts::PI / 180.0,
+                        )
+                    };
 
-                Instance { position, rotation }
+                    Instance { position, rotation }
+                })
             })
-        })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
-    let prefab = Prefab::new(mesh, material, instances, device);
+        let prefab = Prefab::new(mesh, material, instances, device);
 
-    state.scene.prefabs.push(prefab);
+        state.scene.prefabs.push(prefab);
+    }
+
+    fn update(&mut self, state: &mut State, elapsed: f32) {
+        if let Some(camera_controller) = &self.camera_controller {
+            camera_controller.update_camera(&mut state.scene.camera, elapsed);
+        }
+    }
+
+    fn input(&mut self, state: &mut State, event: &winit::event::WindowEvent) -> bool {
+        if let Some(camera_controller) = &mut self.camera_controller {
+            camera_controller.process_events(event);
+        }
+        match event {
+            WindowEvent::CursorMoved { position, .. } => {
+                state.scene.camera.clear_color = wgpu::Color {
+                    r: position.x / state.size.width as f64,
+                    g: 0.2,
+                    b: position.y / state.size.height as f64,
+                    a: 1.0,
+                };
+                true
+            }
+            _ => false,
+        }
+    }
 }
+
+fn main() {
+    let game_state = GameState {
+        camera_controller: Some(CameraController::new(1.5)),
+    };
+    run(Box::new(game_state));
+}
+
 // TODO: Remove main.rs and create /examples

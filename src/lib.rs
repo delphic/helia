@@ -11,13 +11,11 @@ use winit::{
 };
 
 use crate::camera::*;
-use crate::camera_controller::*;
 use crate::material::*;
 use crate::mesh::*;
 use crate::shader::*;
 
 pub mod camera;
-mod camera_controller;
 pub mod material;
 pub mod mesh;
 pub mod shader;
@@ -32,7 +30,6 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     depth_texture: texture::Texture,
     pub scene: Scene,
-    camera_controller: Option<CameraController>, // this should be in game
     pub texture_bind_group_layout: wgpu::BindGroupLayout, // this shouldn't be public
 }
 
@@ -71,13 +68,6 @@ impl Prefab {
         }
     }
 }
-
-// okay so resource id for mesh and material
-// then render object (?) with mesh, and material id
-// and an instance
-// we have a list of render objects, nope this doesn't map well to instances
-// we want a 'prefab'ish concept. which can store instances as well as the mesh / material
-// data
 
 impl State {
     // Creating some of the wgpu types requires async code
@@ -170,7 +160,6 @@ impl State {
             size,
             depth_texture,
             scene,
-            camera_controller: Some(CameraController::new(1.5)),
             texture_bind_group_layout,
         }
     }
@@ -186,28 +175,7 @@ impl State {
         }
     }
 
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        if let Some(camera_controller) = &mut self.camera_controller {
-            camera_controller.process_events(event);
-        }
-        match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                self.scene.camera.clear_color = wgpu::Color {
-                    r: position.x / self.size.width as f64,
-                    g: 0.2,
-                    b: position.y / self.size.height as f64,
-                    a: 1.0,
-                };
-                true
-            }
-            _ => false,
-        }
-    }
-
-    fn update(&mut self, elapsed: f32) {
-        if let Some(camera_controller) = &self.camera_controller {
-            camera_controller.update_camera(&mut self.scene.camera, elapsed);
-        }
+    fn update(&mut self, _elapsed: f32) {
         self.scene
             .camera_render_info
             .update(&self.scene.camera, &mut self.queue);
@@ -307,22 +275,22 @@ impl State {
     }
 }
 
-pub fn run<F>(init: F)
-where
-    F: FnMut(&mut State),
-{
+pub trait Game {
+    fn init(&mut self, state: &mut State);
+    fn update(&mut self, state: &mut State, elapsed: f32);
+    fn input(&mut self, state: &mut State, event: &WindowEvent) -> bool;
+}
+
+pub fn run(game: Box<dyn Game>) {
     // todo: pass functions to run and run_internal which are called after init and then every frame
     // for now they can just take mut State as an argument
-    pollster::block_on(run_internal(init));
+    pollster::block_on(run_internal(game));
     // Q: how does macroquad manage to make main async?
     // consider use of https://docs.rs/tokio or https://docs.rs/async-std over pollster
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub async fn run_internal<F>(mut init: F)
-where
-    F: FnMut(&mut State),
-{
+pub async fn run_internal(mut game: Box<dyn Game>) {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -358,14 +326,14 @@ where
 
     let mut state = State::new(&window).await;
 
-    init(&mut state);
+    game.init(&mut state);
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             ref event,
             window_id,
         } if window_id == window.id() => {
-            if !state.input(event) {
+            if !game.input(&mut state, event) {
                 match event {
                     WindowEvent::CloseRequested
                     | WindowEvent::KeyboardInput {
@@ -389,9 +357,11 @@ where
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            let elapsed = state.last_update_time.elapsed();
-            state.update(elapsed.as_secs_f32());
+            let elapsed = state.last_update_time.elapsed().as_secs_f32();
             state.last_update_time = Instant::now();
+            game.update(&mut state, elapsed);
+            state.update(elapsed);
+
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost
