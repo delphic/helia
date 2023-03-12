@@ -1,15 +1,13 @@
-use camera_controller::*;
 use glam::*;
 use helia::{
     camera::Camera,
+    camera_controller::*,
     material::Material,
     mesh::Mesh,
     shader::{Instance, Vertex},
     *,
 };
 use winit::event::WindowEvent;
-
-mod camera_controller;
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -71,7 +69,7 @@ impl Game for GameState {
         state.scene.camera = camera;
 
         // Makin' Textures
-        let diffuse_bytes = include_bytes!("../assets/lena.png");
+        let diffuse_bytes = include_bytes!("../../../assets/lena.png");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
         let material = Material::new(diffuse_texture, &state.texture_bind_group_layout, &device);
@@ -132,12 +130,11 @@ impl Game for GameState {
     }
 }
 
-fn main() {
+pub async fn run() {
     let game_state = GameState {
         camera_controller: Some(CameraController::new(1.5)),
     };
-    pollster::block_on(run(Box::new(game_state)));
-    // consider use of https://docs.rs/tokio or https://docs.rs/async-std over pollster
+    helia::run(Box::new(game_state)).await;
 }
 
 // Q: how does macroquad manage to make main async?

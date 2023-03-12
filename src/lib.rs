@@ -13,6 +13,9 @@ use crate::material::*;
 use crate::mesh::*;
 use crate::shader::*;
 
+
+pub mod camera_controller;
+
 pub mod camera;
 pub mod material;
 pub mod mesh;
@@ -297,12 +300,7 @@ pub fn wasm_start() {
     // will moving to examples work? how does bevy do this?
 }
 
-pub fn run(game: Box<dyn Game>) {
-    pollster::block_on(run_internal(game));
-    // consider use of https://docs.rs/tokio or https://docs.rs/async-std over pollster
-}
-
-async fn run_internal(mut game: Box<dyn Game>) {
+pub async fn run(mut game: Box<dyn Game>) {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             std::panic::set_hook(Box::new(console_error_panic_hook::hook));

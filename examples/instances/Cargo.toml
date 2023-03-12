@@ -1,0 +1,19 @@
+[package]
+name = "helia-instances-example"
+version = "0.0.0"
+edition = "2021"
+description = "Binary and WASM exportable instances example"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+# rlib for desktop env, cdylib for wasm
+
+[dependencies]
+helia = { path = "../../" }
+pollster = "0.2"
+glam = "0.22"
+winit = "0.27"
+wgpu = "0.14"
