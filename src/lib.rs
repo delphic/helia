@@ -138,7 +138,7 @@ impl State {
 
         let shader_render_info = ShaderRenderInfo::new(
             &device,
-            wgpu::include_wgsl!("shader.wgsl"),
+            wgpu::include_wgsl!("instanced.wgsl"),
             config.format,
             &render_pipeline_layout,
         );
