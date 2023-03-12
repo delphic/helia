@@ -628,6 +628,27 @@ dependencies = [
 name = "helia"
 version = "0.0.0"
 dependencies = [
+ "helia_internal",
+]
+
+[[package]]
+name = "helia-instances-example"
+version = "0.0.0"
+dependencies = [
+ "glam",
+ "helia",
+ "log",
+ "pollster",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "helia_internal"
+version = "0.0.0"
+dependencies = [
  "anyhow",
  "bytemuck",
  "cfg-if",

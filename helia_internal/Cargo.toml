@@ -1,0 +1,41 @@
+[package]
+name = "helia_internal"
+version = "0.0.0"
+edition = "2021"
+description = "A Radiant Game Engine"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+# rlib for desktop env, cdylib for wasm
+
+[dependencies]
+winit = "0.27"
+env_logger = "0.10"
+log = "0.4"
+wgpu = "0.14"
+pollster = "0.2"
+bytemuck = { version = "1.12", features = [ "derive" ] }
+anyhow = "1.0"
+glam = "0.22"
+cfg-if = "1"
+instant = "0.1"
+
+[dependencies.image]
+version = "0.24"
+default-features = false
+features = ["png"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"
+console_log = "0.2.0"
+wgpu = { version = "0.14", features = ["webgl"]}
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "Element",
+] }
