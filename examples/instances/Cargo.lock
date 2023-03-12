@@ -652,7 +652,10 @@ version = "0.0.0"
 dependencies = [
  "glam",
  "helia",
+ "log",
  "pollster",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wgpu",
  "winit",
 ]

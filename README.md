@@ -6,7 +6,7 @@ A WIP Rust Game Engine!
 
 Standalone: `cargo run`
 
-Web: `wasm-pack build --target web`
+Web: `wasm-pack build <target example> --target web`
 
 ## System Dependencies on Linux
 

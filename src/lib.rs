@@ -282,24 +282,6 @@ pub trait Game {
     fn input(&mut self, state: &mut State, event: &WindowEvent) -> bool;
 }
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn wasm_start() {
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init_with_level(log::Level::Warn).expect("Couldn't initialize logger");
-            log::error!("Unable to run as no game info"); 
-        }
-    }
-    // We have a bit of a problem here, wasm_bindgen(start) seems to only work from within lib.rs
-    // but clearly the library isn't the game, previously we just ran run_internal directly
-    // but that's when all logic was within lib.rs and main was just a trigger point
-    // will moving to examples work? how does bevy do this?
-}
-
 pub async fn run(mut game: Box<dyn Game>) {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {

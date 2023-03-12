@@ -17,3 +17,8 @@ pollster = "0.2"
 glam = "0.22"
 winit = "0.27"
 wgpu = "0.14"
+log = "0.4"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
