@@ -4,7 +4,7 @@ use helia::{
     camera_controller::*,
     material::Material,
     mesh::Mesh,
-    shader::{Instance, Vertex},
+    shader::Vertex,
     *,
 };
 use winit::event::WindowEvent;
@@ -95,12 +95,17 @@ impl Game for GameState {
                         )
                     };
 
-                    Instance { position, rotation }
+                    // todo: try changing color based on x
+                    (glam::Mat4::from_rotation_translation(rotation, position), wgpu::Color::WHITE)
                 })
             })
             .collect::<Vec<_>>();
 
-        let prefab = Prefab::new(mesh, material, instances, device);
+        let mut prefab = Prefab::new(mesh, material);
+        
+        for (transform, color) in instances.iter() {
+            prefab.add_instance(*transform, *color);
+        }
 
         state.scene.prefabs.push(prefab);
     }

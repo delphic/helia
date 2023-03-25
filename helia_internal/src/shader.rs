@@ -2,6 +2,7 @@ use glam::*;
 
 use crate::texture;
 
+// This is a perfectly legit Sprite Vertex
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
@@ -29,6 +30,15 @@ impl Vertex {
         }
     }
 }
+
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct EntityUniforms {
+    pub model: [[f32; 4]; 4],
+    pub color: [f32; 4],
+}
+// for sprite shader
 
 pub struct Instance {
     pub position: Vec3,
@@ -98,14 +108,14 @@ impl ShaderRenderInfo {
         layout: &wgpu::PipelineLayout,
     ) -> Self {
         let shader_module = device.create_shader_module(module_descriptor);
-        // there is a pipeline per shader
+        // there is a pipeline per shader, determines how many buffers you send!
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(layout),
             vertex: wgpu::VertexState {
                 module: &shader_module,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc(), InstanceRaw::desc()],
+                buffers: &[Vertex::desc()], //, InstanceRaw::desc() for particle systems
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader_module,
