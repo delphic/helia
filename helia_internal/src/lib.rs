@@ -138,7 +138,7 @@ pub struct Scene {
     camera_bind_group: CameraBindGroup,
     // this feels like renderer / context internal state
     entity_bind_group: EntityBindGroup,
-    // this is also kinda specific to shader implementation, however we might have to make an opinionated choice here for sanity
+    // todo: this is specific per shader, so we need different buffers for each shader not one for the whole scene
     pub camera: Camera,
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     entity_count: usize,
@@ -296,7 +296,7 @@ impl State {
         }
     }
 
-    // HACK: ideally would have to have an accessor like this, could probably
+    // HACK: ideally wouldn't have to have an accessor like this, could probably
     // 'fix' this by having a renderer module, which has methods for creating texture bindgroups
     // may also sort itself out once we remove the bind group from the public Material struct
     pub fn get_texture_bind_group_layout_ref(&self) -> &wgpu::BindGroupLayout {
@@ -428,7 +428,7 @@ pub async fn run(mut game: Box<dyn Game>) {
         // Winit prevents sizing with CSS, so we have
         // to set the size manually when on the web
         use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(450, 400));
+        window.set_inner_size(PhysicalSize::new(960, 540));
 
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
