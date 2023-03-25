@@ -105,13 +105,27 @@ impl ShaderRenderPipeline {
         device: &wgpu::Device,
         module_descriptor: wgpu::ShaderModuleDescriptor,
         texture_format: wgpu::TextureFormat,
-        layout: &wgpu::PipelineLayout,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
+        camera_bind_group_layout: &wgpu::BindGroupLayout,
+        entity_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
+        // bind group layouts order has to match the @group declarations in the shader
+        let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Render Pipeline Layout"),
+            bind_group_layouts: &[
+                texture_bind_group_layout,
+                camera_bind_group_layout,
+                entity_bind_group_layout,
+            ],
+            push_constant_ranges: &[],
+        });
+        // You could conceivably share pipeline layouts between shaders with similar bind group requirements
+
         let shader_module = device.create_shader_module(module_descriptor);
         // there is a pipeline per shader, determines how many buffers you send!
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
-            layout: Some(layout),
+            layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader_module,
                 entry_point: "vs_main",

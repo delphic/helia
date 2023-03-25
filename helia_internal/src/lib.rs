@@ -264,30 +264,15 @@ impl State {
         let entity_bind_group = EntityBindGroup::new(&device);
 
         // Makin' shaders
-        // note this pipeline layout is specific per shader (although could potentially be shared)
-        // in that the bind group layouts have to match the @group declarations in the shader
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &texture_bind_group_layout,
-                    &camera_bind_group.layout,
-                    &entity_bind_group.layout,
-                ],
-                push_constant_ranges: &[],
-            });
-        // ^^ probably want to pass the bind group layouts to ShaderRenderInfo::new()
-        // and have that create the pipeline layout, well actually ideally the shader implementation 
-        // would use an api to retrieve the bind groups it needed
-
+        // Currently 'sprite' shader which is used for everything
         let shader_render_pipeline = ShaderRenderPipeline::new(
             &device,
             wgpu::include_wgsl!("shaders/sprite.wgsl"),
             config.format,
-            &render_pipeline_layout,
+            &texture_bind_group_layout,
+            &camera_bind_group.layout,
+            &entity_bind_group.layout,
         );
-        // You could conceivably share pipeline layouts between shaders with similar bind group requirements
-        // The bind group layouts dependency here mirrors dependency the bind groups in the render function
 
         let scene = Scene {
             shader_render_pipeline,
