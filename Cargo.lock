@@ -632,7 +632,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "helia-instances-example"
+name = "helia-prefabs-example"
 version = "0.0.0"
 dependencies = [
  "glam",

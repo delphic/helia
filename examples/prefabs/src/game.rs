@@ -5,6 +5,7 @@ use helia::{
     material::Material,
     mesh::Mesh,
     shader::Vertex,
+    texture::Texture,
     *,
 };
 use winit::event::WindowEvent;
@@ -70,8 +71,7 @@ impl Game for GameState {
 
         // Makin' Textures
         let diffuse_bytes = include_bytes!("../../../assets/lena.png");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
+        let diffuse_texture = Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
         let material = Material::new(diffuse_texture, state);
         // ^^ arguably material should contain a link to the shader it executes (an id)
 
@@ -139,4 +139,4 @@ pub async fn run() {
 }
 
 // Q: how does macroquad manage to make main async?
-// TODO: Remove main.rs and create /examples
+// A: TL:DR "macros"

@@ -1,5 +1,5 @@
 [package]
-name = "helia-instances-example"
+name = "helia-prefabs-example"
 version = "0.0.0"
 edition = "2021"
 description = "Binary and WASM exportable instances example"
