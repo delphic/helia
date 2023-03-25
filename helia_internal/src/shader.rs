@@ -96,11 +96,11 @@ impl InstanceRaw {
     }
 }
 
-pub struct ShaderRenderInfo {
+pub struct ShaderRenderPipeline {
     pub render_pipeline: wgpu::RenderPipeline,
 }
 
-impl ShaderRenderInfo {
+impl ShaderRenderPipeline {
     pub fn new(
         device: &wgpu::Device,
         module_descriptor: wgpu::ShaderModuleDescriptor,

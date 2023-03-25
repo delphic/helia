@@ -30,20 +30,18 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     depth_texture: texture::Texture,
     pub scene: Scene,
-    pub texture_bind_group_layout: wgpu::BindGroupLayout, // this shouldn't be public
+    texture_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 pub struct Scene {
-    shader_render_info: ShaderRenderInfo, // this feels like renderer / context internal state
-    camera_render_info: CameraRenderInfo, // this feels like renderer / context internal state
+    shader_render_pipeline: ShaderRenderPipeline,
+    // this feels like it should be part of a shader struct
+    camera_bind_group: CameraBindGroup,
+    // this feels like renderer / context internal state
+    entity_bind_group: EntityBindGroup,
+    // this is also kinda specific to shader implementation, however we might have to make an opinionated choice here for sanity
     pub camera: Camera,
     pub prefabs: Vec<Prefab>,
-
-    #[allow(dead_code)]
-    entity_bind_group_layout: wgpu::BindGroupLayout,
-    entity_bind_group: wgpu::BindGroup,
-    entity_uniforms_buffer: wgpu::Buffer, // only applies to sprites atm
-    entity_uniforms_alignment: wgpu::BufferAddress,
 }
 
 // Currently only applies to sprites, and has to be used with prefabs
@@ -51,7 +49,68 @@ pub struct Scene {
 struct Entity {
     transform: glam::Mat4,
     color: wgpu::Color,
-    uniform_offset: usize, // needs to be converted into a wgpu::DynamnicOffset based on uniform_size / spacing
+}
+
+struct EntityBindGroup {
+    layout: wgpu::BindGroupLayout,
+    bind_group: wgpu::BindGroup,
+    buffer: wgpu::Buffer, // only applies to sprites atm
+    alignment: wgpu::BufferAddress,    
+}
+
+impl EntityBindGroup {
+    fn new(device: &wgpu::Device) -> Self {
+        let entity_uniform_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
+        let entity_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: wgpu::BufferSize::new(entity_uniform_size),
+                },
+                count: None,
+            }],
+            label: None,
+        });
+
+        let num_entities = 128 as wgpu::BufferAddress;
+        // Make the `uniform_alignment` >= `entity_uniform_size` and aligned to `min_uniform_buffer_offset_alignment`.
+        let entity_uniforms_alignment = {
+            let alignment =
+                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+            wgpu::util::align_to(entity_uniform_size, alignment)
+        };
+        // Note: dynamic uniform offsets also have to be aligned to `Limits::min_uniform_buffer_offset_alignment`.
+        let entity_uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: num_entities * entity_uniforms_alignment,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+
+        let entity_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &entity_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &entity_uniforms_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(entity_uniform_size),
+                }),
+            }],
+            label: None,
+        });
+
+        Self { 
+            layout: entity_bind_group_layout,
+            bind_group: entity_bind_group,
+            buffer: entity_uniforms_buffer,
+            alignment: entity_uniforms_alignment
+        }
+    }
 }
 
 pub struct Prefab {
@@ -76,7 +135,6 @@ impl Prefab {
         self.entities.push(Entity {
             transform,
             color,
-            uniform_offset: self.entities.len()
         });
     }
 }
@@ -133,26 +191,9 @@ impl State {
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let texture_bind_group_layout = Material::create_bind_group_layout(&device);
+        let camera_bind_group = CameraBindGroup::new(&device, None);
 
-        let camera_render_info = CameraRenderInfo::new(&device, None);
-
-        // todo: 'render_info' for entity - need bind group layout and bind group
-        // we make the buffer below and I think we dynamically make the uniform data every frame
-        // (as we have to pack it into a buffer w/ offsets)
-        let entity_uniform_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
-        let entity_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: wgpu::BufferSize::new(entity_uniform_size),
-                },
-                count: None,
-            }],
-            label: None,
-        });
+        let entity_bind_group = EntityBindGroup::new(&device);
 
         // Makin' shaders
         // note this pipeline layout is specific per shader (although could potentially be shared)
@@ -162,13 +203,16 @@ impl State {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
-                    &camera_render_info.bind_group_layout,
-                    &entity_bind_group_layout,
+                    &camera_bind_group.layout,
+                    &entity_bind_group.layout,
                 ],
                 push_constant_ranges: &[],
             });
+        // ^^ probably want to pass the bind group layouts to ShaderRenderInfo::new()
+        // and have that create the pipeline layout, well actually ideally the shader implementation 
+        // would use an api to retrieve the bind groups it needed
 
-        let shader_render_info = ShaderRenderInfo::new(
+        let shader_render_pipeline = ShaderRenderPipeline::new(
             &device,
             wgpu::include_wgsl!("shaders/sprite.wgsl"),
             config.format,
@@ -177,47 +221,12 @@ impl State {
         // You could conceivably share pipeline layouts between shaders with similar bind group requirements
         // The bind group layouts dependency here mirrors dependency the bind groups in the render function
 
-        // Make a buffer for potential entities
-        // and store the uniform aligment as we'll need it
-        let num_entities = 128 as wgpu::BufferAddress;
-        // Make the `uniform_alignment` >= `entity_uniform_size` and aligned to `min_uniform_buffer_offset_alignment`.
-        let entity_uniforms_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            wgpu::util::align_to(entity_uniform_size, alignment)
-        };
-        // Note: dynamic uniform offsets also have to be aligned to `Limits::min_uniform_buffer_offset_alignment`.
-        let entity_uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: num_entities * entity_uniforms_alignment,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-
-        let entity_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &entity_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &entity_uniforms_buffer,
-                    offset: 0,
-                    size: wgpu::BufferSize::new(entity_uniform_size),
-                }),
-            }],
-            label: None,
-        });
-
         let scene = Scene {
-            shader_render_info,
-            camera_render_info,
+            shader_render_pipeline,
+            camera_bind_group,
             camera: Camera::default(),
             prefabs: Vec::new(),
-            // entity 'render info'
-            entity_bind_group_layout,
-            entity_bind_group,
-            entity_uniforms_buffer,
-            entity_uniforms_alignment,
+            entity_bind_group
         };
 
         Self {
@@ -231,6 +240,13 @@ impl State {
             scene,
             texture_bind_group_layout,
         }
+    }
+
+    // HACK: ideally would have to have an accessor like this, could probably
+    // 'fix' this by having a renderer module, which has methods for creating texture bindgroups
+    // may also sort itself out once we remove the bind group from the public Material struct
+    pub fn get_texture_bind_group_layout_ref(&self) -> &wgpu::BindGroupLayout {
+        &self.texture_bind_group_layout
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -247,12 +263,13 @@ impl State {
     fn update(&mut self, _elapsed: f32) {
         // arguably this is all currently scene.update
         self.scene
-            .camera_render_info
+            .camera_bind_group
             .update(&self.scene.camera, &mut self.queue);
     
         let mut running_offset : usize = 0;
+        let entity_aligment = self.scene.entity_bind_group.alignment;
         for prefab in self.scene.prefabs.iter() {
-            for entity in prefab.entities.iter() {
+            for (i, entity) in prefab.entities.iter().enumerate() {
                 let data = EntityUniforms {
                     model: entity.transform.to_cols_array_2d(),
                     color: [
@@ -262,9 +279,9 @@ impl State {
                         entity.color.a as f32,
                     ],
                 };
-                let offset = (entity.uniform_offset + running_offset) as u64 * self.scene.entity_uniforms_alignment;
+                let offset = (i + running_offset) as u64 * entity_aligment;
                 self.queue.write_buffer(
-                    &self.scene.entity_uniforms_buffer,
+                    &self.scene.entity_bind_group.buffer,
                     offset as wgpu::BufferAddress,
                     bytemuck::bytes_of(&data),
                 );
@@ -313,16 +330,20 @@ impl State {
             });
 
             let mut running_offset = 0;
+            let entity_aligment = self.scene.entity_bind_group.alignment;
+            let entity_bind_group = &self.scene.entity_bind_group.bind_group;
             for prefab in self.scene.prefabs.iter() {
-                // todo: only do this if there are any instances
+                if prefab.entities.is_empty() {
+                    continue;
+                }
 
-                let shader = &self.scene.shader_render_info;
+                let shader = &self.scene.shader_render_pipeline;
                 // want to move this to something the shader does
                 render_pass.set_pipeline(&shader.render_pipeline);
                 // ^^ todo: move to material
 
                 render_pass.set_bind_group(0, &prefab.material.diffuse_bind_group, &[]);
-                render_pass.set_bind_group(1, &self.scene.camera_render_info.bind_group, &[]);
+                render_pass.set_bind_group(1, &self.scene.camera_bind_group.bind_group, &[]);
                 // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
                 // but the locations are
 
@@ -334,9 +355,9 @@ impl State {
 
                 // using uniform with offset approach of
                 // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
-                for entity in prefab.entities.iter() {
-                    let offset = (entity.uniform_offset + running_offset) as u64 * self.scene.entity_uniforms_alignment;
-                    render_pass.set_bind_group(2, &self.scene.entity_bind_group, &[offset as wgpu::DynamicOffset]);
+                for i in 0..prefab.entities.len() {
+                    let offset = (i + running_offset) as u64 * entity_aligment;
+                    render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
                     render_pass.draw_indexed(0..prefab.mesh.index_count as u32, 0, 0..1);
                 }
                 running_offset += prefab.entities.len();

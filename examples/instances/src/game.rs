@@ -72,9 +72,8 @@ impl Game for GameState {
         let diffuse_bytes = include_bytes!("../../../assets/lena.png");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
-        let material = Material::new(diffuse_texture, &state.texture_bind_group_layout, &device);
+        let material = Material::new(diffuse_texture, state);
         // ^^ arguably material should contain a link to the shader it executes (an id)
-        // ^^ todo: remove need for texture_bind_group_layout from the call at this location
 
         let mesh = Mesh::new(VERTICES, INDICES, &device);
         let instances = (0..NUM_INSTANCES_PER_ROW)

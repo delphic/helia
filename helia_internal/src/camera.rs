@@ -67,8 +67,9 @@ impl CameraUniform {
     }
 }
 
-pub struct CameraRenderInfo {
-    pub bind_group_layout: wgpu::BindGroupLayout,
+/// Contains the bind group, its layout and the data to bind 
+pub struct CameraBindGroup {
+    pub layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
     buffer: wgpu::Buffer,
     uniform: CameraUniform,
@@ -76,9 +77,9 @@ pub struct CameraRenderInfo {
 // todo: a better name would be nice
 // only one camera supported currently
 
-impl CameraRenderInfo {
+impl CameraBindGroup {
     pub fn new(device: &wgpu::Device, camera: Option<&Camera>) -> Self {
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("camera_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -104,7 +105,7 @@ impl CameraRenderInfo {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
+            layout: &layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: buffer.as_entire_binding(),
@@ -113,7 +114,7 @@ impl CameraRenderInfo {
         });
 
         Self {
-            bind_group_layout,
+            layout,
             buffer,
             uniform,
             bind_group,

@@ -1,21 +1,22 @@
-use crate::texture;
+use crate::{texture, State};
 
 pub struct Material {
     pub diffuse_bind_group: wgpu::BindGroup,
     #[allow(dead_code)]
     diffuse_texture: texture::Texture,
 }
-// todo: we probably want to separate renderer concepts from public types
-// this is currently more accurately MaterialRenderInfo as we've been calling other things
+// todo: we don't want the bind group info in the public types, but that requires us to have
+// an internal representation, as we can't create a bind group until we have the texture,
+// so we can't store the material layout, bind group ahead of time like we can with the other types.
 
 impl Material {
     pub fn new(
         diffuse_texture: texture::Texture,
-        bind_group_layout: &wgpu::BindGroupLayout,
-        device: &wgpu::Device,
+        state: &State,
     ) -> Self {
+        let device = &state.device;
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
+            layout: state.get_texture_bind_group_layout_ref(),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
