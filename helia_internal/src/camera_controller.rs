@@ -78,10 +78,10 @@ impl CameraController {
         let distance_to_target = to_target.length();
 
         if self.is_right_pressed {
-            camera.eye = camera.target - (forward + right * delta).normalize() * distance_to_target;
+            camera.eye = camera.target - (forward - right * delta).normalize() * distance_to_target;
         }
         if self.is_left_pressed {
-            camera.eye = camera.target - (forward - right * delta).normalize() * distance_to_target;
+            camera.eye = camera.target - (forward + right * delta).normalize() * distance_to_target;
         }
     }
 }
