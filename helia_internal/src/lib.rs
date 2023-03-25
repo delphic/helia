@@ -1,5 +1,6 @@
 use glam::*;
 use instant::Instant;
+use slotmap::DenseSlotMap;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -12,7 +13,6 @@ use crate::material::*;
 use crate::mesh::*;
 use crate::shader::*;
 
-
 pub mod camera_controller; 
 
 pub mod camera;
@@ -20,29 +20,6 @@ pub mod material;
 pub mod mesh;
 pub mod shader;
 pub mod texture;
-
-pub struct State {
-    last_update_time: Instant,
-    surface: wgpu::Surface,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    pub size: winit::dpi::PhysicalSize<u32>,
-    depth_texture: texture::Texture,
-    pub scene: Scene,
-    texture_bind_group_layout: wgpu::BindGroupLayout,
-}
-
-pub struct Scene {
-    shader_render_pipeline: ShaderRenderPipeline,
-    // this feels like it should be part of a shader struct
-    camera_bind_group: CameraBindGroup,
-    // this feels like renderer / context internal state
-    entity_bind_group: EntityBindGroup,
-    // this is also kinda specific to shader implementation, however we might have to make an opinionated choice here for sanity
-    pub camera: Camera,
-    pub prefabs: Vec<Prefab>,
-}
 
 // Currently only applies to sprites, and has to be used with prefabs
 // todo: option to provide your own mesh / maerial data 
@@ -55,63 +32,79 @@ struct EntityBindGroup {
     layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
     buffer: wgpu::Buffer, // only applies to sprites atm
-    alignment: wgpu::BufferAddress,    
+    alignment: wgpu::BufferAddress,
+    entity_capacity: u64,
 }
 
 impl EntityBindGroup {
-    fn new(device: &wgpu::Device) -> Self {
-        let entity_uniform_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
-        let entity_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: wgpu::BufferSize::new(entity_uniform_size),
+                    min_binding_size: wgpu::BufferSize::new(entity_uniforms_size),
                 },
                 count: None,
             }],
             label: None,
         });
 
-        let num_entities = 128 as wgpu::BufferAddress;
-        // Make the `uniform_alignment` >= `entity_uniform_size` and aligned to `min_uniform_buffer_offset_alignment`.
-        let entity_uniforms_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            wgpu::util::align_to(entity_uniform_size, alignment)
-        };
-        // Note: dynamic uniform offsets also have to be aligned to `Limits::min_uniform_buffer_offset_alignment`.
-        let entity_uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        const INITIAL_ENTITY_CAPACITY : u64 = 128;
+        let buffer = Self::create_buffer(INITIAL_ENTITY_CAPACITY, device);
+        let bind_group = Self::create_bind_group(&layout, &buffer, device);
+
+        Self { 
+            layout,
+            bind_group,
+            buffer,
+            alignment: Self::calculate_alignment(device),
+            entity_capacity: INITIAL_ENTITY_CAPACITY,
+        }
+    }
+
+    pub fn recreate_entity_buffer(&mut self, capacity: u64, device: &wgpu::Device) {
+        self.entity_capacity = capacity;
+        self.buffer = Self::create_buffer(self.entity_capacity, device);
+        self.bind_group = Self::create_bind_group(&self.layout, &self.buffer, device);
+    }
+
+    fn calculate_alignment(device: &wgpu::Device) -> wgpu::BufferAddress {
+        // Dynamic uniform offsets also have to be aligned to `Limits::min_uniform_buffer_offset_alignment`.
+        let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
+        wgpu::util::align_to(entity_uniforms_size, device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress)
+    }
+
+    fn create_buffer(entity_capacity: u64, device: &wgpu::Device) -> wgpu::Buffer {
+        device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: num_entities * entity_uniforms_alignment,
+            size: entity_capacity * Self::calculate_alignment(device),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
-        });
+        })
+    }
 
-
-        let entity_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &entity_bind_group_layout,
+    fn create_bind_group(layout: &wgpu::BindGroupLayout, buffer: &wgpu::Buffer, device: &wgpu::Device) -> wgpu::BindGroup {
+        let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &entity_uniforms_buffer,
+                    buffer: buffer,
                     offset: 0,
-                    size: wgpu::BufferSize::new(entity_uniform_size),
+                    size: wgpu::BufferSize::new(entity_uniforms_size),
                 }),
             }],
             label: None,
-        });
-
-        Self { 
-            layout: entity_bind_group_layout,
-            bind_group: entity_bind_group,
-            buffer: entity_uniforms_buffer,
-            alignment: entity_uniforms_alignment
-        }
+        })
     }
 }
+
+slotmap::new_key_type! { pub struct PrefabId; }
 
 pub struct Prefab {
     pub mesh: Mesh,
@@ -137,6 +130,81 @@ impl Prefab {
             color,
         });
     }
+}
+
+pub struct Scene {
+    shader_render_pipeline: ShaderRenderPipeline,
+    // this feels like it should be part of a shader struct
+    camera_bind_group: CameraBindGroup,
+    // this feels like renderer / context internal state
+    entity_bind_group: EntityBindGroup,
+    // this is also kinda specific to shader implementation, however we might have to make an opinionated choice here for sanity
+    pub camera: Camera,
+    pub prefabs: DenseSlotMap<PrefabId, Prefab>,
+    entity_count: usize,
+}
+
+impl Scene {
+    pub fn create_prefab(&mut self, mesh: Mesh, material: Material) -> PrefabId {
+        self.prefabs.insert(Prefab::new(mesh, material))
+    }
+
+    pub fn add_instance(&mut self, prefab_id: PrefabId, transform: glam::Mat4, color: wgpu::Color) {
+        self.entity_count += 1;
+        self.prefabs[prefab_id].entities.push(Entity { 
+            transform,
+            color,
+        });
+        // ^^ todo: return EntityId
+    }
+
+    pub fn update(&mut self, _elapsed: f32, queue: &wgpu::Queue, device: &wgpu::Device) {
+        self.camera_bind_group.update(&self.camera, &queue);
+
+        let capacity = self.entity_bind_group.entity_capacity;
+        if capacity < self.entity_count as u64 {
+            let mut target_capacity = 2 * capacity;
+            while target_capacity < self.entity_count as u64 {
+                target_capacity *= 2;
+            }
+            self.entity_bind_group.recreate_entity_buffer(target_capacity, device);
+        }
+
+        let mut running_offset : usize = 0;
+        let entity_aligment = self.entity_bind_group.alignment;
+        for prefab in self.prefabs.values() {
+            for (i, entity) in prefab.entities.iter().enumerate() {
+                let data = EntityUniforms {
+                    model: entity.transform.to_cols_array_2d(),
+                    color: [
+                        entity.color.r as f32,
+                        entity.color.g as f32,
+                        entity.color.b as f32,
+                        entity.color.a as f32,
+                    ],
+                };
+                let offset = (i + running_offset) as u64 * entity_aligment;
+                queue.write_buffer(
+                    &self.entity_bind_group.buffer,
+                    offset as wgpu::BufferAddress,
+                    bytemuck::bytes_of(&data),
+                );
+            }
+            running_offset += prefab.entities.len();
+        }
+    }
+} 
+
+pub struct State {
+    last_update_time: Instant,
+    surface: wgpu::Surface,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+    pub size: winit::dpi::PhysicalSize<u32>,
+    depth_texture: texture::Texture,
+    pub scene: Scene,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl State {
@@ -225,8 +293,9 @@ impl State {
             shader_render_pipeline,
             camera_bind_group,
             camera: Camera::default(),
-            prefabs: Vec::new(),
-            entity_bind_group
+            prefabs: DenseSlotMap::with_key(),
+            entity_bind_group,
+            entity_count: 0,
         };
 
         Self {
@@ -260,34 +329,8 @@ impl State {
         }
     }
 
-    fn update(&mut self, _elapsed: f32) {
-        // arguably this is all currently scene.update
-        self.scene
-            .camera_bind_group
-            .update(&self.scene.camera, &mut self.queue);
-    
-        let mut running_offset : usize = 0;
-        let entity_aligment = self.scene.entity_bind_group.alignment;
-        for prefab in self.scene.prefabs.iter() {
-            for (i, entity) in prefab.entities.iter().enumerate() {
-                let data = EntityUniforms {
-                    model: entity.transform.to_cols_array_2d(),
-                    color: [
-                        entity.color.r as f32,
-                        entity.color.g as f32,
-                        entity.color.b as f32,
-                        entity.color.a as f32,
-                    ],
-                };
-                let offset = (i + running_offset) as u64 * entity_aligment;
-                self.queue.write_buffer(
-                    &self.scene.entity_bind_group.buffer,
-                    offset as wgpu::BufferAddress,
-                    bytemuck::bytes_of(&data),
-                );
-            }
-            running_offset += prefab.entities.len();
-        }    
+    fn update(&mut self, elapsed: f32) {
+        self.scene.update(elapsed, &self.queue, &self.device);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -332,7 +375,7 @@ impl State {
             let mut running_offset = 0;
             let entity_aligment = self.scene.entity_bind_group.alignment;
             let entity_bind_group = &self.scene.entity_bind_group.bind_group;
-            for prefab in self.scene.prefabs.iter() {
+            for prefab in self.scene.prefabs.values() {
                 if prefab.entities.is_empty() {
                     continue;
                 }

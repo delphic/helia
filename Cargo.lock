@@ -660,6 +660,7 @@ dependencies = [
  "instant",
  "log",
  "pollster",
+ "slotmap",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

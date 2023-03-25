@@ -100,13 +100,10 @@ impl Game for GameState {
             })
             .collect::<Vec<_>>();
 
-        let mut prefab = Prefab::new(mesh, material);
-        
+        let lena_prefab_id = state.scene.create_prefab(mesh, material);
         for (transform, color) in instances.iter() {
-            prefab.add_instance(*transform, *color);
+            state.scene.add_instance(lena_prefab_id, *transform, *color);
         }
-
-        state.scene.prefabs.push(prefab);
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {

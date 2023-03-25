@@ -121,7 +121,7 @@ impl CameraBindGroup {
         }
     }
 
-    pub fn update(&mut self, camera: &Camera, queue: &mut wgpu::Queue) {
+    pub fn update(&mut self, camera: &Camera, queue: &wgpu::Queue) {
         self.uniform.update_view_proj(camera);
         queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
         // ^^ Should probably be creating a separate buffer and copy it's contents
