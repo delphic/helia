@@ -168,6 +168,11 @@ impl Scene {
 
                     let material = &resources.materials[material_id];
                     render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+                    // We're presumably going to share the layout for textures across shaders
+                    // therefore we can and should share texture bind groups across materials
+                    // only rebind when appropriate, rather than rebinding per material
+                    // however should only do this is we're bothering to order the scene graph
+                    // to group materials with the same textures
                 }
 
                 let mesh = &resources.meshes[mesh_id];
