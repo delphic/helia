@@ -3,18 +3,18 @@ use crate::entity::*;
 use crate::material::*;
 use crate::mesh::*;
 use crate::prefab::*;
-use crate::shader::{EntityUniforms, ShaderRenderPipeline};
+use crate::shader::ShaderId;
+use crate::shader::EntityUniforms;
 use crate::EntityBindGroup;
 use crate::{CameraBindGroup, Resources};
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
 use slotmap::{DenseSlotMap, SlotMap};
 
 pub struct Scene {
-    pub shader_render_pipeline: ShaderRenderPipeline,
     // this feels like it should be part of a shader struct
-    pub camera_bind_group: CameraBindGroup,
+    camera_bind_group: CameraBindGroup,
     // this feels like renderer / context internal state
-    pub entity_bind_group: EntityBindGroup,
+    entity_bind_group: EntityBindGroup,
     // todo: this is specific per shader, so we need different buffers for each shader not one for the whole scene
     // ^^ if we move methods from lib into scene impl might be able to make these fields private again
     pub camera: Camera,
@@ -25,12 +25,10 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(
-        shader_render_pipeline: ShaderRenderPipeline,
         camera_bind_group: CameraBindGroup,
         entity_bind_group: EntityBindGroup,
     ) -> Self {
         Self {
-            shader_render_pipeline,
             camera_bind_group,
             entity_bind_group,
             camera: Camera::default(),
@@ -187,7 +185,7 @@ impl Scene {
             }),
         });
 
-        let mut currently_bound_shader_id: bool = false; // todo: make into id once we support multiple shaders
+        let mut currently_bound_shader_id: Option<ShaderId> = None;
         let mut currently_bound_mesh_id: Option<MeshId> = None;
         let mut currently_bound_material_id: Option<MaterialId> = None;
 
@@ -205,14 +203,14 @@ impl Scene {
                 if currently_bound_material_id != Some(material_id) {
                     currently_bound_material_id = Some(material_id);
 
-                    if !currently_bound_shader_id {
-                        currently_bound_shader_id = true;
-                        let shader = &self.shader_render_pipeline;
+                    let material = &resources.materials[material_id];
+                    if currently_bound_shader_id != Some(material.shader) {
+                        currently_bound_shader_id = Some(material.shader);
+                        let shader = &resources.shaders[material.shader];
                         render_pass.set_pipeline(&shader.render_pipeline);
                         render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
                     }
 
-                    let material = &resources.materials[material_id];
                     render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
                     // We're presumably going to share the layout for textures across shaders
                     // therefore we can and should share texture bind groups across materials
@@ -244,14 +242,16 @@ impl Scene {
 
             if currently_bound_material_id != Some(prefab.material) {
                 currently_bound_material_id = Some(prefab.material);
-                if !currently_bound_shader_id {
-                    currently_bound_shader_id = true;
-                    let shader = &self.shader_render_pipeline;
+
+                let material = &resources.materials[prefab.material];
+
+                if currently_bound_shader_id != Some(material.shader) {
+                    currently_bound_shader_id = Some(material.shader);
+                    let shader = &resources.shaders[material.shader];
                     render_pass.set_pipeline(&shader.render_pipeline);
                     render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
                 }
 
-                let material = &resources.materials[prefab.material];
                 render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
             }
 

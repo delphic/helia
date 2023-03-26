@@ -95,11 +95,13 @@ impl InstanceRaw {
     }
 }
 
-pub struct ShaderRenderPipeline {
+slotmap::new_key_type! { pub struct ShaderId; }
+
+pub struct Shader {
     pub render_pipeline: wgpu::RenderPipeline,
 }
 
-impl ShaderRenderPipeline {
+impl Shader {
     pub fn new(
         device: &wgpu::Device,
         module_descriptor: wgpu::ShaderModuleDescriptor,

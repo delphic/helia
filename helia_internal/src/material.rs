@@ -1,8 +1,9 @@
-use crate::{texture, State};
+use crate::{texture, State, shader::ShaderId};
 
 slotmap::new_key_type! { pub struct MaterialId; }
 
 pub struct Material {
+    pub shader: ShaderId,
     pub diffuse_bind_group: wgpu::BindGroup,
     #[allow(dead_code)]
     diffuse_texture: texture::Texture,
@@ -10,9 +11,14 @@ pub struct Material {
 // todo: we don't want the bind group info in the public types, but that requires us to have
 // an internal representation, as we can't create a bind group until we have the texture,
 // so we can't store the material layout, bind group ahead of time like we can with the other types.
+// It's tricky though, we need the particular texture to create the bind group, but the layout is technically
+// specific to the shader although we don't support a different laytout right now
 
 impl Material {
-    pub fn new(diffuse_texture: texture::Texture, state: &State) -> Self {
+    pub fn new(shader: ShaderId, diffuse_texture: texture::Texture, state: &State) -> Self {
+        // todo: would be nice to provide an overload that takes a enum of BuildInShaders
+        // and that we keep track of enum -> ShaderId, that way the user only has to worry about 
+        // shader ids for shaders they've created
         let device = &state.device;
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: state.get_texture_bind_group_layout_ref(),
@@ -29,6 +35,7 @@ impl Material {
             label: Some("diffuse_bind_group"),
         });
         Self {
+            shader,
             diffuse_bind_group,
             diffuse_texture,
         }

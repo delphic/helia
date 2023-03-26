@@ -30,6 +30,7 @@ pub mod texture;
 pub struct Resources {
     pub meshes: SlotMap<MeshId, Mesh>,
     pub materials: SlotMap<MaterialId, Material>,
+    pub shaders: SlotMap<ShaderId, Shader>,
 }
 
 impl Resources {
@@ -37,8 +38,13 @@ impl Resources {
         Self {
             meshes: SlotMap::with_key(),
             materials: SlotMap::with_key(),
+            shaders: SlotMap::with_key(), 
         }
     }
+}
+
+pub struct BuildInShaders {
+    pub unlit_textured: ShaderId,
 }
 
 pub struct State {
@@ -51,6 +57,7 @@ pub struct State {
     depth_texture: texture::Texture,
     pub scene: Scene,
     pub resources: Resources,
+    pub shaders: BuildInShaders,
     texture_bind_group_layout: wgpu::BindGroupLayout,
 }
 
@@ -102,6 +109,8 @@ impl State {
         // can find valid present modes via: surface.get_supported_modes(&adapter);
         surface.configure(&device, &config);
 
+        let mut resources = Resources::new();
+
         // Depth Texture
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
@@ -115,16 +124,17 @@ impl State {
         // Currently 'sprite' shader which is used for everything
         // although more accurately it's just UnlitTextured (w/ tint)
         // but we intend for it to become a sprite!
-        let shader_render_pipeline = ShaderRenderPipeline::new(
+        let shader = Shader::new(
             &device,
-            wgpu::include_wgsl!("shaders/sprite.wgsl"),
+            wgpu::include_wgsl!("shaders/unlit_textured.wgsl"),
             config.format,
             &texture_bind_group_layout,
             &camera_bind_group.layout,
             &entity_bind_group.layout,
         );
+        let unlit_textured = resources.shaders.insert(shader);
 
-        let scene = Scene::new(shader_render_pipeline, camera_bind_group, entity_bind_group);
+        let scene = Scene::new(camera_bind_group, entity_bind_group);
 
         Self {
             last_update_time: Instant::now(),
@@ -136,7 +146,8 @@ impl State {
             depth_texture,
             scene,
             texture_bind_group_layout,
-            resources: Resources::new(),
+            resources,
+            shaders: BuildInShaders { unlit_textured },
         }
     }
 
