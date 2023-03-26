@@ -8,7 +8,6 @@ use winit::{
     window::WindowBuilder,
 };
 
-use camera::*;
 use entity::*;
 use material::*;
 use mesh::*;
@@ -116,7 +115,6 @@ impl State {
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let texture_bind_group_layout = Material::create_bind_group_layout(&device);
-        let camera_bind_group = CameraBindGroup::new(&device, None);
 
         let entity_bind_group = EntityBindGroup::new(&device);
 
@@ -129,12 +127,11 @@ impl State {
             wgpu::include_wgsl!("shaders/unlit_textured.wgsl"),
             config.format,
             &texture_bind_group_layout,
-            &camera_bind_group.layout,
             &entity_bind_group.layout,
         );
         let unlit_textured = resources.shaders.insert(shader);
 
-        let scene = Scene::new(camera_bind_group, entity_bind_group);
+        let scene = Scene::new(entity_bind_group);
 
         Self {
             last_update_time: Instant::now(),
@@ -171,8 +168,8 @@ impl State {
         false
     }
 
-    fn update(&mut self, elapsed: f32) {
-        self.scene.update(elapsed, &self.queue, &self.device);
+    fn update(&mut self, _elapsed: f32) {
+        self.scene.update(&mut self.resources, &self.queue, &self.device);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {

@@ -78,7 +78,7 @@ pub struct CameraBindGroup {
 // only one camera supported currently
 
 impl CameraBindGroup {
-    pub fn new(device: &wgpu::Device, camera: Option<&Camera>) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("camera_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -94,9 +94,7 @@ impl CameraBindGroup {
         });
 
         let mut uniform = CameraUniform::new();
-        if let Some(camera) = camera {
-            uniform.update_view_proj(camera);
-        }
+        uniform.update_view_proj(&Camera::default());
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),

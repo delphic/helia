@@ -6,13 +6,11 @@ use crate::prefab::*;
 use crate::shader::ShaderId;
 use crate::shader::EntityUniforms;
 use crate::EntityBindGroup;
-use crate::{CameraBindGroup, Resources};
+use crate::Resources;
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
 use slotmap::{DenseSlotMap, SlotMap};
 
 pub struct Scene {
-    // this feels like it should be part of a shader struct
-    camera_bind_group: CameraBindGroup,
     // this feels like renderer / context internal state
     entity_bind_group: EntityBindGroup,
     // todo: this is specific per shader, so we need different buffers for each shader not one for the whole scene
@@ -25,11 +23,9 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(
-        camera_bind_group: CameraBindGroup,
         entity_bind_group: EntityBindGroup,
     ) -> Self {
         Self {
-            camera_bind_group,
             entity_bind_group,
             camera: Camera::default(),
             prefabs: DenseSlotMap::with_key(),
@@ -83,11 +79,23 @@ impl Scene {
         &mut self.entities[id]
     }
 
-    pub fn update(&mut self, _elapsed: f32, queue: &wgpu::Queue, device: &wgpu::Device) {
-        self.camera_bind_group.update(&self.camera, queue);
+    pub fn update(&mut self, resources: &mut Resources, queue: &wgpu::Queue, device: &wgpu::Device) {
+        // This fills the camera and entity buffers with the appropriate information
+        // all shaders which will be used are updated
+        // todo: should make test cases and profile updating all shaders compared to updating currently used
+        // shaders
+
+        // NOTE: This currently has dependnecy on scene.camera so it's explicitly a pre-render step for a 
+        // specific camera and as such, todo: we should probably call it then instead, alternatively we could 
+        // create a set of shaders which will be used from this update, and then loop through and run an update for
+        // the camera prior to the render step for the specific cameras instead
+
+        let mut shaders_updated = std::collections::HashSet::new();
 
         // todo: check if any prefab instance has had material or mesh set
         // if so, assign the other (if required) and move to entities and remove from instances
+        // although could argue the game code should explicitly break the prefab connection rather
+        // than checking every frame for something that's going to be quite rare
 
         let capacity = self.entity_bind_group.entity_capacity;
         let entity_count = self.entities.len() as u64;
@@ -108,6 +116,14 @@ impl Scene {
             .map(|id| &self.entities[*id])
             .enumerate()
         {
+            if let Some(material_id) = entity.material {
+                let material = &resources.materials[material_id];
+                if !shaders_updated.contains(&material.shader) {
+                    shaders_updated.insert(material.shader);
+                    resources.shaders[material.shader].camera_bind_group.update(&self.camera, queue);
+                }
+            }
+
             let data = EntityUniforms {
                 model: entity.transform.to_cols_array_2d(),
                 color: [
@@ -127,6 +143,12 @@ impl Scene {
 
         let mut running_offset: usize = self.render_objects.len();
         for prefab in self.prefabs.values() {
+            let material = &resources.materials[prefab.material];
+            if !shaders_updated.contains(&material.shader) {
+                shaders_updated.insert(material.shader);
+                resources.shaders[material.shader].camera_bind_group.update(&self.camera, queue);
+            }
+
             for (i, entity) in prefab
                 .instances
                 .iter()
@@ -208,10 +230,10 @@ impl Scene {
                         currently_bound_shader_id = Some(material.shader);
                         let shader = &resources.shaders[material.shader];
                         render_pass.set_pipeline(&shader.render_pipeline);
-                        render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
+                        render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]);
                     }
 
-                    render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+                    render_pass.set_bind_group(1, &material.diffuse_bind_group, &[]);
                     // We're presumably going to share the layout for textures across shaders
                     // therefore we can and should share texture bind groups across materials
                     // only rebind when appropriate, rather than rebinding per material
@@ -249,10 +271,10 @@ impl Scene {
                     currently_bound_shader_id = Some(material.shader);
                     let shader = &resources.shaders[material.shader];
                     render_pass.set_pipeline(&shader.render_pipeline);
-                    render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
+                    render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]);
                 }
 
-                render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+                render_pass.set_bind_group(1, &material.diffuse_bind_group, &[]);
             }
 
             let mesh = &resources.meshes[prefab.mesh];
