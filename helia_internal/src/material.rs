@@ -1,5 +1,7 @@
 use crate::{texture, State};
 
+slotmap::new_key_type! { pub struct MaterialId; }
+
 pub struct Material {
     pub diffuse_bind_group: wgpu::BindGroup,
     #[allow(dead_code)]

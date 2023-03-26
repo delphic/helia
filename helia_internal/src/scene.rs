@@ -37,7 +37,7 @@ impl Scene {
         }
     }
 
-    pub fn create_prefab(&mut self, mesh: Mesh, material: Material) -> PrefabId {
+    pub fn create_prefab(&mut self, mesh: MeshId, material: MaterialId) -> PrefabId {
         self.prefabs.insert(Prefab::new(mesh, material))
     }
 
@@ -47,7 +47,7 @@ impl Scene {
         entity_id
     }
 
-    pub fn add_entity(&mut self, transform: glam::Mat4, color: wgpu::Color, mesh: Mesh, material: Material) -> EntityId {
+    pub fn add_entity(&mut self, transform: glam::Mat4, color: wgpu::Color, mesh: MeshId, material: MaterialId) -> EntityId {
         let entity_id = self.entities.insert(Entity { transform, color, mesh: Some(mesh), material: Some(material) });
         self.render_objects.push(entity_id);
         entity_id

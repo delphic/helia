@@ -5,16 +5,16 @@ use crate::material::*;
 slotmap::new_key_type! { pub struct PrefabId; }
 
 pub struct Prefab {
-    pub mesh: Mesh,
-    pub material: Material,
+    pub mesh: MeshId,
+    pub material: MaterialId,
     pub instances: Vec<EntityId>,
 }
 
 impl Prefab {
     pub fn new(
-        mesh: Mesh,
-        material: Material,
-    ) -> Self {        
+        mesh: MeshId,
+        material: MaterialId,
+    ) -> Self {
         Self {
             mesh,
             material,

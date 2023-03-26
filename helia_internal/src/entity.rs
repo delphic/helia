@@ -1,4 +1,4 @@
-use crate::{shader::EntityUniforms, mesh::Mesh, material::Material};
+use crate::{shader::EntityUniforms, mesh::MeshId, material::MaterialId};
 
 // This is really a render object at the moment
 // it is also mixing the requirements of the shader (transform / color)
@@ -12,8 +12,8 @@ slotmap::new_key_type! { pub struct EntityId; }
 pub struct Entity {
     pub transform: glam::Mat4,
     pub color: wgpu::Color,
-    pub mesh: Option<Mesh>,
-    pub material: Option<Material>,
+    pub mesh: Option<MeshId>,
+    pub material: Option<MaterialId>,
 }
 
 pub struct EntityBindGroup {

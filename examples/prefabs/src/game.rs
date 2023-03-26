@@ -70,10 +70,14 @@ impl Game for GameState {
         state.scene.camera = camera;
 
         // Makin' Textures
-        let diffuse_bytes = include_bytes!("../../../assets/lena.png");
-        let diffuse_texture = Texture::from_bytes(&device, &queue, diffuse_bytes, "lena.png").unwrap();
-        let material = Material::new(diffuse_texture, state);
+        let texture_bytes = include_bytes!("../../../assets/lena_on_black.png");
+        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena black").unwrap();
+        let black_material = Material::new(texture, state);
         // ^^ arguably material should contain a link to the shader it executes (an id)
+
+        let texture_bytes = include_bytes!("../../../assets/lena_on_rink.png");
+        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena rink").unwrap();
+        let rink_material = Material::new(texture, state);
 
         let mesh = Mesh::new(VERTICES, INDICES, &device);
         let instances = (0..NUM_INSTANCES_PER_ROW)
@@ -94,15 +98,24 @@ impl Game for GameState {
                         )
                     };
 
-                    // todo: try changing color based on x
+                    // todo: demonstrate changing color per instance
                     (glam::Mat4::from_rotation_translation(rotation, position), wgpu::Color::WHITE)
                 })
             })
             .collect::<Vec<_>>();
-        // todo: alternate prefabs (use another texture)
-        let lena_prefab_id = state.scene.create_prefab(mesh, material);
-        for (transform, color) in instances.iter() {
-            state.scene.add_instance(lena_prefab_id, *transform, *color);
+
+        let mesh_id = state.resources.meshes.insert(mesh);
+        let black_material_id = state.resources.materials.insert(black_material);
+        let rink_material_id = state.resources.materials.insert(rink_material);
+        let lena_prefab_id = state.scene.create_prefab(mesh_id, black_material_id);
+        let lena_alt_prefab_id = state.scene.create_prefab(mesh_id, rink_material_id);
+
+        for (i, (transform, color)) in instances.iter().enumerate() {
+            if i % 2 == 0 {
+                state.scene.add_instance(lena_prefab_id, *transform, *color);
+            } else {
+                state.scene.add_instance(lena_alt_prefab_id, *transform, *color);
+            }
         }
     }
 

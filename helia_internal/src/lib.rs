@@ -1,5 +1,6 @@
 use glam::*;
 use instant::Instant;
+use slotmap::SlotMap;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -8,6 +9,7 @@ use winit::{
 };
 
 use camera::*;
+use mesh::*;
 use material::*;
 use shader::*;
 use entity::*;
@@ -25,6 +27,20 @@ pub mod mesh;
 pub mod shader;
 pub mod texture;
 
+pub struct Resources {
+    pub meshes: SlotMap<MeshId, Mesh>,
+    pub materials: SlotMap<MaterialId, Material>,
+}
+
+impl Resources {
+    pub fn new() -> Self {
+        Self {
+            meshes: SlotMap::with_key(),
+            materials: SlotMap::with_key(),
+        }
+    }
+}
+
 pub struct State {
     last_update_time: Instant,
     surface: wgpu::Surface,
@@ -34,6 +50,7 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     depth_texture: texture::Texture,
     pub scene: Scene,
+    pub resources: Resources,
     texture_bind_group_layout: wgpu::BindGroupLayout,
 }
 
@@ -119,6 +136,7 @@ impl State {
             depth_texture,
             scene,
             texture_bind_group_layout,
+            resources: Resources::new(),
         }
     }
 
@@ -190,8 +208,11 @@ impl State {
             let entity_bind_group = &self.scene.entity_bind_group.bind_group;
 
             for (i, entity) in self.scene.render_objects.iter().map(|id| self.scene.get_entity(*id)).enumerate() {
-                if let (Some(mesh), Some(material)) = (&entity.mesh, &entity.material) {
+                if let (Some(mesh), Some(material)) = (entity.mesh, entity.material) {
                     let shader = &self.scene.shader_render_pipeline;
+                    let material = &self.resources.materials[material];
+                    let mesh = &self.resources.meshes[mesh];
+
                     // want to move this to something the shader does
                     render_pass.set_pipeline(&shader.render_pipeline);
                     // ^^ todo: move to material
@@ -220,18 +241,21 @@ impl State {
                 }
 
                 let shader = &self.scene.shader_render_pipeline;
+                let material = &self.resources.materials[prefab.material];
+                let mesh = &self.resources.meshes[prefab.mesh];
+
                 // want to move this to something the shader does
                 render_pass.set_pipeline(&shader.render_pipeline);
                 // ^^ todo: move to material
 
-                render_pass.set_bind_group(0, &prefab.material.diffuse_bind_group, &[]);
+                render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
                 render_pass.set_bind_group(1, &self.scene.camera_bind_group.bind_group, &[]);
                 // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
                 // but the locations are
 
-                render_pass.set_vertex_buffer(0, prefab.mesh.vertex_buffer.slice(..));
+                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 render_pass.set_index_buffer(
-                    prefab.mesh.index_buffer.slice(..),
+                    mesh.index_buffer.slice(..),
                     wgpu::IndexFormat::Uint16,
                 );
 
@@ -240,7 +264,7 @@ impl State {
                 for i in 0..prefab.instances.len() {
                     let offset = (i + running_offset) as u64 * entity_aligment;
                     render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
-                    render_pass.draw_indexed(0..prefab.mesh.index_count as u32, 0, 0..1);
+                    render_pass.draw_indexed(0..mesh.index_count as u32, 0, 0..1);
                 }
                 running_offset += prefab.instances.len();
             }

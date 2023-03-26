@@ -3,6 +3,8 @@ use wgpu::Buffer;
 
 use crate::shader::Vertex;
 
+slotmap::new_key_type! { pub struct MeshId; }
+
 pub struct Mesh {
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,

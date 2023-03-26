@@ -107,10 +107,11 @@ impl Game for GameState {
         state.scene.camera = camera;
 
         // Makin' Textures
-        let diffuse_bytes = include_bytes!("../../../assets/crate.png");
-        let diffuse_texture = Texture::from_bytes(&device, &queue, diffuse_bytes, "crate.png").unwrap();
-        let material = Material::new(diffuse_texture, state);
+        let texture_bytes = include_bytes!("../../../assets/crate.png");
+        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "crate").unwrap();
+        let material = Material::new(texture, state);
         // ^^ arguably material should contain a link to the shader it executes (an id)
+        let material_id = state.resources.materials.insert(material);
 
         let mut vertices = Vec::new();
         for i in 0..CUBE_POSITIONS.len() {
@@ -118,12 +119,12 @@ impl Game for GameState {
         }
 
         let mesh = Mesh::new(vertices.as_slice(), CUBE_INDICES, &device);
-        let position = Vec3::ZERO;
-        let rotation = Quat::IDENTITY;
-        let transform = glam::Mat4::from_rotation_translation(rotation, position);
+        let mesh_id = state.resources.meshes.insert(mesh);
+
+        let transform = glam::Mat4::from_rotation_translation(Quat::IDENTITY, Vec3::ZERO);
         let color = wgpu::Color::WHITE;
 
-        self.cube = Some(state.scene.add_entity(transform, color, mesh, material));
+        self.cube = Some(state.scene.add_entity(transform, color, mesh_id, material_id));
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
