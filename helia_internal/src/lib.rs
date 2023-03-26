@@ -129,7 +129,7 @@ impl State {
         &self.texture_bind_group_layout
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) -> bool {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
@@ -137,7 +137,9 @@ impl State {
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+            return true;
         }
+        false
     }
 
     fn update(&mut self, elapsed: f32) {
@@ -257,6 +259,7 @@ pub trait Game {
     fn init(&mut self, state: &mut State);
     fn update(&mut self, state: &mut State, elapsed: f32);
     fn input(&mut self, state: &mut State, event: &WindowEvent) -> bool;
+    fn resize(&mut self, state: &mut State);
 }
 
 pub async fn run(mut game: Box<dyn Game>) {
@@ -316,11 +319,15 @@ pub async fn run(mut game: Box<dyn Game>) {
                         ..
                     } => *control_flow = ControlFlow::Exit,
                     WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
+                        if state.resize(*physical_size) {
+                            game.resize(&mut state);
+                        }
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         // new_inner_size is &&mut so we have to dereference it twice
-                        state.resize(**new_inner_size);
+                        if state.resize(**new_inner_size) {
+                            game.resize(&mut state);
+                        }
                     }
                     _ => {}
                 }
@@ -335,7 +342,7 @@ pub async fn run(mut game: Box<dyn Game>) {
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost
-                Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
+                Err(wgpu::SurfaceError::Lost) => (|| { state.resize(state.size); })(),
                 // The system is out of memory, we should probably quit
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 // All other errors (Outdated, Timeout) should be resolved by the next frame

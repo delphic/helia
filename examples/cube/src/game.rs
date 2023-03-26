@@ -149,6 +149,10 @@ impl Game for GameState {
         }
         false
     }
+
+    fn resize(&mut self, state: &mut State) {
+        state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
+    }
 }
 
 pub async fn run() {
