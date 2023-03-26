@@ -146,30 +146,40 @@ impl Scene {
             }),
         });
 
+        let mut currently_bound_shader_id : bool = false; // todo: make into id once we support multiple shaders
+        let mut currently_bound_mesh_id : Option<MeshId> = None;
+        let mut currently_bound_material_id : Option<MaterialId> = None;
+
         let mut running_offset = 0;
         let entity_aligment = self.entity_bind_group.alignment;
         let entity_bind_group = &self.entity_bind_group.bind_group;
 
         for (i, entity) in self.render_objects.iter().map(|id| self.get_entity(*id)).enumerate() {
-            if let (Some(mesh), Some(material)) = (entity.mesh, entity.material) {
-                let shader = &self.shader_render_pipeline;
-                let material = &resources.materials[material];
-                let mesh = &resources.meshes[mesh];
+            if let (Some(mesh_id), Some(material_id)) = (entity.mesh, entity.material) {
+                if currently_bound_material_id != Some(material_id) {
+                    currently_bound_material_id = Some(material_id);
 
-                // want to move this to something the shader does
-                render_pass.set_pipeline(&shader.render_pipeline);
-                // ^^ todo: move to material
+                    if currently_bound_shader_id != true {
+                        currently_bound_shader_id = true;
+                        let shader = &self.shader_render_pipeline;
+                        render_pass.set_pipeline(&shader.render_pipeline);
+                        render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
+                    }
 
-                render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
-                render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
-                // ^^ don't really want to rebind this per entity (or per prefab)
-                // lets try moving it out see if it still works
+                    let material = &resources.materials[material_id];
+                    render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+                }
 
-                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(
-                    mesh.index_buffer.slice(..),
-                    wgpu::IndexFormat::Uint16,
-                );
+                let mesh = &resources.meshes[mesh_id];
+                if currently_bound_mesh_id != Some(mesh_id) {
+                    currently_bound_mesh_id = Some(mesh_id);
+
+                    render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint16,
+                    );
+                }
 
                 let offset = (i + running_offset) as u64 * entity_aligment;
                 render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
@@ -183,24 +193,29 @@ impl Scene {
                 continue;
             }
 
-            let shader = &self.shader_render_pipeline;
-            let material = &resources.materials[prefab.material];
+            if currently_bound_material_id != Some(prefab.material) {
+                currently_bound_material_id = Some(prefab.material);
+                if currently_bound_shader_id != true {
+                    currently_bound_shader_id = true;
+                    let shader = &self.shader_render_pipeline;
+                    render_pass.set_pipeline(&shader.render_pipeline);
+                    render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
+                }
+
+                let material = &resources.materials[prefab.material];
+                render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+            }
+
             let mesh = &resources.meshes[prefab.mesh];
+            if currently_bound_mesh_id != Some(prefab.mesh) {
+                currently_bound_mesh_id = Some(prefab.mesh);
 
-            // want to move this to something the shader does
-            render_pass.set_pipeline(&shader.render_pipeline);
-            // ^^ todo: move to material
-
-            render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
-            // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
-            // but the locations are
-
-            render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(
-                mesh.index_buffer.slice(..),
-                wgpu::IndexFormat::Uint16,
-            );
+                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(
+                    mesh.index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint16,
+                );
+            }
 
             // using uniform with offset approach of
             // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
