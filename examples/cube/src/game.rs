@@ -2,6 +2,7 @@ use glam::*;
 use helia::{
     camera::Camera,
     camera_controller::*,
+    entity::EntityId,
     material::Material,
     mesh::Mesh,
     shader::Vertex,
@@ -78,6 +79,8 @@ const CUBE_INDICES: &[u16] = &[
 
 pub struct GameState {
     camera_controller: Option<CameraController>,
+    cube: Option<EntityId>,
+    time: f32,
 }
 
 impl Game for GameState {
@@ -120,14 +123,24 @@ impl Game for GameState {
         let transform = glam::Mat4::from_rotation_translation(rotation, position);
         let color = wgpu::Color::WHITE;
 
-        state.scene.add_entity(transform, color, mesh, material);
+        self.cube = Some(state.scene.add_entity(transform, color, mesh, material));
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
+        self.time += elapsed; // todo: should be getting this from helia
         if let Some(camera_controller) = &self.camera_controller {
             camera_controller.update_camera(&mut state.scene.camera, elapsed);
         }
-        // todo: ROTATE THE CUBE - requires get_mut of entity
+        if let Some(cube) = self.cube {
+            let entity = state.scene.get_entity_mut(cube);
+            let (scale, rotation, _) = entity.transform.to_scale_rotation_translation(); 
+            let translation = Vec3::new(self.time.sin(), 0.0, 0.0);
+            let rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed) * rotation;
+            entity.transform = Mat4::from_scale_rotation_translation(scale, rotation, translation);
+            // well that's horrible to work with, going to want some kind of Transform struct
+            // exposing position / rotation / scale and build the matrix
+             
+        }
     }
 
     fn input(&mut self, _state: &mut State, event: &winit::event::WindowEvent) -> bool {
@@ -141,6 +154,8 @@ impl Game for GameState {
 pub async fn run() {
     let game_state = GameState {
         camera_controller: Some(CameraController::new(1.5)),
+        cube: None,
+        time: 0.0,
     };
     helia::run(Box::new(game_state)).await;
 }

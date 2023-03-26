@@ -1,6 +1,5 @@
 use glam::*;
 use instant::Instant;
-use slotmap::DenseSlotMap;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -97,6 +96,8 @@ impl State {
 
         // Makin' shaders
         // Currently 'sprite' shader which is used for everything
+        // although more accurately it's just UnlitTextured (w/ tint)
+        // but we intend for it to become a sprite!
         let shader_render_pipeline = ShaderRenderPipeline::new(
             &device,
             wgpu::include_wgsl!("shaders/sprite.wgsl"),
@@ -106,15 +107,7 @@ impl State {
             &entity_bind_group.layout,
         );
 
-        let scene = Scene {
-            shader_render_pipeline,
-            camera_bind_group,
-            camera: Camera::default(),
-            prefabs: DenseSlotMap::with_key(),
-            entities: Vec::new(),
-            entity_bind_group,
-            total_entity_count: 0,
-        };
+        let scene = Scene::new(shader_render_pipeline, camera_bind_group, entity_bind_group);
 
         Self {
             last_update_time: Instant::now(),
@@ -194,7 +187,7 @@ impl State {
             let entity_aligment = self.scene.entity_bind_group.alignment;
             let entity_bind_group = &self.scene.entity_bind_group.bind_group;
 
-            for (i, entity) in self.scene.entities.iter().enumerate() {
+            for (i, entity) in self.scene.render_objects.iter().map(|id| self.scene.get_entity(*id)).enumerate() {
                 if let (Some(mesh), Some(material)) = (&entity.mesh, &entity.material) {
                     let shader = &self.scene.shader_render_pipeline;
                     // want to move this to something the shader does
@@ -217,7 +210,7 @@ impl State {
                     render_pass.draw_indexed(0..mesh.index_count as u32, 0, 0..1);
                 }
             }
-            running_offset += self.scene.entities.len();
+            running_offset += self.scene.render_objects.len();
 
             for prefab in self.scene.prefabs.values() {
                 if prefab.instances.is_empty() {

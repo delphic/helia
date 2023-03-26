@@ -6,7 +6,9 @@ use crate::{shader::EntityUniforms, mesh::Mesh, material::Material};
 // the shader (via material, currently implicit)
 
 // Currently only applies to sprites, and has to be used with prefabs
-// todo: option to provide your own mesh / maerial data 
+
+slotmap::new_key_type! { pub struct EntityId; }
+
 pub struct Entity {
     pub transform: glam::Mat4,
     pub color: wgpu::Color,
@@ -17,7 +19,7 @@ pub struct Entity {
 pub struct EntityBindGroup {
     pub layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
-    pub buffer: wgpu::Buffer, // only applies to sprites atm
+    pub buffer: wgpu::Buffer,
     pub alignment: wgpu::BufferAddress,
     pub entity_capacity: u64,
 }
