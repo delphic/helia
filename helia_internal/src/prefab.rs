@@ -7,7 +7,7 @@ slotmap::new_key_type! { pub struct PrefabId; }
 pub struct Prefab {
     pub mesh: Mesh,
     pub material: Material,
-    pub entities: Vec<Entity>,
+    pub instances: Vec<Entity>,
 }
 
 impl Prefab {
@@ -18,14 +18,16 @@ impl Prefab {
         Self {
             mesh,
             material,
-            entities: Vec::new(),
+            instances: Vec::new(),
         }
     }
 
     pub fn add_instance(&mut self, transform: glam::Mat4, color: wgpu::Color) {
-        self.entities.push(Entity {
+        self.instances.push(Entity {
             transform,
             color,
+            mesh: None,
+            material: None,
         });
     }
 }

@@ -111,8 +111,9 @@ impl State {
             camera_bind_group,
             camera: Camera::default(),
             prefabs: DenseSlotMap::with_key(),
+            entities: Vec::new(),
             entity_bind_group,
-            entity_count: 0,
+            total_entity_count: 0,
         };
 
         Self {
@@ -192,8 +193,34 @@ impl State {
             let mut running_offset = 0;
             let entity_aligment = self.scene.entity_bind_group.alignment;
             let entity_bind_group = &self.scene.entity_bind_group.bind_group;
+
+            for (i, entity) in self.scene.entities.iter().enumerate() {
+                if let (Some(mesh), Some(material)) = (&entity.mesh, &entity.material) {
+                    let shader = &self.scene.shader_render_pipeline;
+                    // want to move this to something the shader does
+                    render_pass.set_pipeline(&shader.render_pipeline);
+                    // ^^ todo: move to material
+    
+                    render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+                    render_pass.set_bind_group(1, &self.scene.camera_bind_group.bind_group, &[]);
+                    // ^^ don't really want to rebind this per entity (or per prefab)
+                    // lets try moving it out see if it still works
+    
+                    render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                    render_pass.set_index_buffer(
+                        mesh.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint16,
+                    );
+
+                    let offset = (i + running_offset) as u64 * entity_aligment;
+                    render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
+                    render_pass.draw_indexed(0..mesh.index_count as u32, 0, 0..1);
+                }
+            }
+            running_offset += self.scene.entities.len();
+
             for prefab in self.scene.prefabs.values() {
-                if prefab.entities.is_empty() {
+                if prefab.instances.is_empty() {
                     continue;
                 }
 
@@ -215,12 +242,12 @@ impl State {
 
                 // using uniform with offset approach of
                 // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
-                for i in 0..prefab.entities.len() {
+                for i in 0..prefab.instances.len() {
                     let offset = (i + running_offset) as u64 * entity_aligment;
                     render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
                     render_pass.draw_indexed(0..prefab.mesh.index_count as u32, 0, 0..1);
                 }
-                running_offset += prefab.entities.len();
+                running_offset += prefab.instances.len();
             }
         }
 

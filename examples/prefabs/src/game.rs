@@ -99,7 +99,7 @@ impl Game for GameState {
                 })
             })
             .collect::<Vec<_>>();
-
+        // todo: alternate prefabs (use another texture)
         let lena_prefab_id = state.scene.create_prefab(mesh, material);
         for (transform, color) in instances.iter() {
             state.scene.add_instance(lena_prefab_id, *transform, *color);

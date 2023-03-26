@@ -1,10 +1,17 @@
-use crate::shader::EntityUniforms;
+use crate::{shader::EntityUniforms, mesh::Mesh, material::Material};
+
+// This is really a render object at the moment
+// it is also mixing the requirements of the shader (transform / color)
+// with the requirements the geometry (mesh) and the specification of
+// the shader (via material, currently implicit)
 
 // Currently only applies to sprites, and has to be used with prefabs
 // todo: option to provide your own mesh / maerial data 
 pub struct Entity {
     pub transform: glam::Mat4,
     pub color: wgpu::Color,
+    pub mesh: Option<Mesh>,
+    pub material: Option<Material>,
 }
 
 pub struct EntityBindGroup {
