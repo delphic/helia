@@ -1,80 +1,74 @@
 use glam::*;
 use helia::{
-    camera::Camera,
-    camera_controller::*,
-    entity::EntityId,
-    material::Material,
-    mesh::Mesh,
-    shader::Vertex,
-    texture::Texture,
-    *,
+    camera::Camera, camera_controller::*, entity::EntityId, material::Material, mesh::Mesh,
+    shader::Vertex, texture::Texture, *,
 };
 
 const CUBE_POSITIONS: &[Vec3] = &[
     // Front face
-    Vec3::new(-1.0, -1.0,  1.0,),
-    Vec3::new( 1.0, -1.0,  1.0,),
-    Vec3::new( 1.0,  1.0,  1.0,),
-    Vec3::new(-1.0,  1.0,  1.0,),
+    Vec3::new(-1.0, -1.0, 1.0),
+    Vec3::new(1.0, -1.0, 1.0),
+    Vec3::new(1.0, 1.0, 1.0),
+    Vec3::new(-1.0, 1.0, 1.0),
     // Back face
-    Vec3::new(-1.0, -1.0, -1.0,),
-    Vec3::new(-1.0,  1.0, -1.0,),
-    Vec3::new( 1.0,  1.0, -1.0,),
-    Vec3::new( 1.0, -1.0, -1.0,),
+    Vec3::new(-1.0, -1.0, -1.0),
+    Vec3::new(-1.0, 1.0, -1.0),
+    Vec3::new(1.0, 1.0, -1.0),
+    Vec3::new(1.0, -1.0, -1.0),
     // Top face
-    Vec3::new(-1.0,  1.0, -1.0,),
-    Vec3::new(-1.0,  1.0,  1.0,),
-    Vec3::new( 1.0,  1.0,  1.0,),
-    Vec3::new( 1.0,  1.0, -1.0,),
+    Vec3::new(-1.0, 1.0, -1.0),
+    Vec3::new(-1.0, 1.0, 1.0),
+    Vec3::new(1.0, 1.0, 1.0),
+    Vec3::new(1.0, 1.0, -1.0),
     // Bottom face
-    Vec3::new(-1.0, -1.0, -1.0,),
-    Vec3::new( 1.0, -1.0, -1.0,),
-    Vec3::new( 1.0, -1.0,  1.0,),
-    Vec3::new(-1.0, -1.0,  1.0,),
+    Vec3::new(-1.0, -1.0, -1.0),
+    Vec3::new(1.0, -1.0, -1.0),
+    Vec3::new(1.0, -1.0, 1.0),
+    Vec3::new(-1.0, -1.0, 1.0),
     // Right face
-    Vec3::new( 1.0, -1.0, -1.0,),
-    Vec3::new( 1.0,  1.0, -1.0,),
-    Vec3::new( 1.0,  1.0,  1.0,),
-    Vec3::new( 1.0, -1.0,  1.0,),
+    Vec3::new(1.0, -1.0, -1.0),
+    Vec3::new(1.0, 1.0, -1.0),
+    Vec3::new(1.0, 1.0, 1.0),
+    Vec3::new(1.0, -1.0, 1.0),
     // Left face
-    Vec3::new(-1.0, -1.0, -1.0,),
-    Vec3::new(-1.0, -1.0,  1.0,),
-    Vec3::new(-1.0,  1.0,  1.0,),
-    Vec3::new(-1.0,  1.0, -1.0,),
+    Vec3::new(-1.0, -1.0, -1.0),
+    Vec3::new(-1.0, -1.0, 1.0),
+    Vec3::new(-1.0, 1.0, 1.0),
+    Vec3::new(-1.0, 1.0, -1.0),
 ];
 const CUBE_UVS: &[Vec2] = &[
-    Vec2::new(0.0, 1.0,),
-    Vec2::new(1.0, 1.0,),
-    Vec2::new(1.0, 0.0,),
-    Vec2::new(0.0, 0.0,),
-    Vec2::new(1.0, 1.0,),
-    Vec2::new(1.0, 0.0,),
-    Vec2::new(0.0, 0.0,),
-    Vec2::new(0.0, 1.0,),
-    Vec2::new(0.0, 0.0,),
-    Vec2::new(0.0, 1.0,),
-    Vec2::new(1.0, 1.0,),
-    Vec2::new(1.0, 0.0,),
-    Vec2::new(1.0, 0.0,),
-    Vec2::new(0.0, 0.0,),
-    Vec2::new(0.0, 1.0,),
-    Vec2::new(1.0, 1.0,),
-    Vec2::new(1.0, 1.0,),
-    Vec2::new(1.0, 0.0,),
-    Vec2::new(0.0, 0.0,),
-    Vec2::new(0.0, 1.0,),
-    Vec2::new(0.0, 1.0,),
-    Vec2::new(1.0, 1.0,),
-    Vec2::new(1.0, 0.0,),
-    Vec2::new(0.0, 0.0,),
+    Vec2::new(0.0, 1.0),
+    Vec2::new(1.0, 1.0),
+    Vec2::new(1.0, 0.0),
+    Vec2::new(0.0, 0.0),
+    Vec2::new(1.0, 1.0),
+    Vec2::new(1.0, 0.0),
+    Vec2::new(0.0, 0.0),
+    Vec2::new(0.0, 1.0),
+    Vec2::new(0.0, 0.0),
+    Vec2::new(0.0, 1.0),
+    Vec2::new(1.0, 1.0),
+    Vec2::new(1.0, 0.0),
+    Vec2::new(1.0, 0.0),
+    Vec2::new(0.0, 0.0),
+    Vec2::new(0.0, 1.0),
+    Vec2::new(1.0, 1.0),
+    Vec2::new(1.0, 1.0),
+    Vec2::new(1.0, 0.0),
+    Vec2::new(0.0, 0.0),
+    Vec2::new(0.0, 1.0),
+    Vec2::new(0.0, 1.0),
+    Vec2::new(1.0, 1.0),
+    Vec2::new(1.0, 0.0),
+    Vec2::new(0.0, 0.0),
 ];
 const CUBE_INDICES: &[u16] = &[
-    0, 1, 2,      0, 2, 3,    // Front face
-    4, 5, 6,      4, 6, 7,    // Back face
-    8, 9, 10,     8, 10, 11,  // Top face
-    12, 13, 14,   12, 14, 15, // Bottom face
-    16, 17, 18,   16, 18, 19, // Right face
-    20, 21, 22,   20, 22, 23 , // Left face
+    0, 1, 2, 0, 2, 3, // Front face
+    4, 5, 6, 4, 6, 7, // Back face
+    8, 9, 10, 8, 10, 11, // Top face
+    12, 13, 14, 12, 14, 15, // Bottom face
+    16, 17, 18, 16, 18, 19, // Right face
+    20, 21, 22, 20, 22, 23, // Left face
 ];
 
 pub struct GameState {
@@ -115,7 +109,10 @@ impl Game for GameState {
 
         let mut vertices = Vec::new();
         for i in 0..CUBE_POSITIONS.len() {
-            vertices.push(Vertex { position: CUBE_POSITIONS[i].to_array(), tex_coords: CUBE_UVS[i].to_array() });
+            vertices.push(Vertex {
+                position: CUBE_POSITIONS[i].to_array(),
+                tex_coords: CUBE_UVS[i].to_array(),
+            });
         }
 
         let mesh = Mesh::new(vertices.as_slice(), CUBE_INDICES, &device);
@@ -124,7 +121,11 @@ impl Game for GameState {
         let transform = glam::Mat4::from_rotation_translation(Quat::IDENTITY, Vec3::ZERO);
         let color = wgpu::Color::WHITE;
 
-        self.cube = Some(state.scene.add_entity(transform, color, mesh_id, material_id));
+        self.cube = Some(
+            state
+                .scene
+                .add_entity(transform, color, mesh_id, material_id),
+        );
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
@@ -134,13 +135,14 @@ impl Game for GameState {
         }
         if let Some(cube) = self.cube {
             let entity = state.scene.get_entity_mut(cube);
-            let (scale, rotation, _) = entity.transform.to_scale_rotation_translation(); 
+            let (scale, rotation, _) = entity.transform.to_scale_rotation_translation();
             let translation = Vec3::new(self.time.sin(), 0.0, 0.0);
-            let rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed) * rotation;
+            let rotation =
+                Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
+                    * rotation;
             entity.transform = Mat4::from_scale_rotation_translation(scale, rotation, translation);
             // well that's horrible to work with, going to want some kind of Transform struct
             // exposing position / rotation / scale and build the matrix
-             
         }
     }
 

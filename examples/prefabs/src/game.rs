@@ -1,12 +1,7 @@
 use glam::*;
 use helia::{
-    camera::Camera,
-    camera_controller::*,
-    material::Material,
-    mesh::Mesh,
-    shader::Vertex,
-    texture::Texture,
-    *,
+    camera::Camera, camera_controller::*, material::Material, mesh::Mesh, shader::Vertex,
+    texture::Texture, *,
 };
 use winit::event::WindowEvent;
 
@@ -99,7 +94,10 @@ impl Game for GameState {
                     };
 
                     // todo: demonstrate changing color per instance
-                    (glam::Mat4::from_rotation_translation(rotation, position), wgpu::Color::WHITE)
+                    (
+                        glam::Mat4::from_rotation_translation(rotation, position),
+                        wgpu::Color::WHITE,
+                    )
                 })
             })
             .collect::<Vec<_>>();
@@ -114,7 +112,9 @@ impl Game for GameState {
             if i % 2 == 0 {
                 state.scene.add_instance(lena_prefab_id, *transform, *color);
             } else {
-                state.scene.add_instance(lena_alt_prefab_id, *transform, *color);
+                state
+                    .scene
+                    .add_instance(lena_alt_prefab_id, *transform, *color);
             }
         }
     }

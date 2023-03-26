@@ -1,6 +1,6 @@
 use crate::entity::*;
-use crate::mesh::*;
 use crate::material::*;
+use crate::mesh::*;
 
 slotmap::new_key_type! { pub struct PrefabId; }
 
@@ -11,10 +11,7 @@ pub struct Prefab {
 }
 
 impl Prefab {
-    pub fn new(
-        mesh: MeshId,
-        material: MaterialId,
-    ) -> Self {
+    pub fn new(mesh: MeshId, material: MaterialId) -> Self {
         Self {
             mesh,
             material,

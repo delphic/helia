@@ -31,7 +31,6 @@ impl Vertex {
     }
 }
 
-
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct EntityUniforms {

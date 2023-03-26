@@ -1,4 +1,4 @@
-use crate::{shader::EntityUniforms, mesh::MeshId, material::MaterialId};
+use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 
 // This is really a render object at the moment
 // it is also mixing the requirements of the shader (transform / color)
@@ -41,11 +41,11 @@ impl EntityBindGroup {
             label: None,
         });
 
-        const INITIAL_ENTITY_CAPACITY : u64 = 128;
+        const INITIAL_ENTITY_CAPACITY: u64 = 128;
         let buffer = Self::create_buffer(INITIAL_ENTITY_CAPACITY, device);
         let bind_group = Self::create_bind_group(&layout, &buffer, device);
 
-        Self { 
+        Self {
             layout,
             bind_group,
             buffer,
@@ -63,7 +63,10 @@ impl EntityBindGroup {
     fn calculate_alignment(device: &wgpu::Device) -> wgpu::BufferAddress {
         // Dynamic uniform offsets also have to be aligned to `Limits::min_uniform_buffer_offset_alignment`.
         let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
-        wgpu::util::align_to(entity_uniforms_size, device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress)
+        wgpu::util::align_to(
+            entity_uniforms_size,
+            device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress,
+        )
     }
 
     fn create_buffer(entity_capacity: u64, device: &wgpu::Device) -> wgpu::Buffer {
@@ -75,7 +78,11 @@ impl EntityBindGroup {
         })
     }
 
-    fn create_bind_group(layout: &wgpu::BindGroupLayout, buffer: &wgpu::Buffer, device: &wgpu::Device) -> wgpu::BindGroup {
+    fn create_bind_group(
+        layout: &wgpu::BindGroupLayout,
+        buffer: &wgpu::Buffer,
+        device: &wgpu::Device,
+    ) -> wgpu::BindGroup {
         let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: layout,

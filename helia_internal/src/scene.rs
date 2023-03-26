@@ -1,11 +1,11 @@
 use crate::camera::Camera;
-use crate::shader::{EntityUniforms, ShaderRenderPipeline};
-use crate::{CameraBindGroup, Resources};
-use crate::EntityBindGroup;
 use crate::entity::*;
-use crate::prefab::*;
-use crate::mesh::*;
 use crate::material::*;
+use crate::mesh::*;
+use crate::prefab::*;
+use crate::shader::{EntityUniforms, ShaderRenderPipeline};
+use crate::EntityBindGroup;
+use crate::{CameraBindGroup, Resources};
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
 use slotmap::{DenseSlotMap, SlotMap};
 
@@ -17,7 +17,6 @@ pub struct Scene {
     pub entity_bind_group: EntityBindGroup,
     // todo: this is specific per shader, so we need different buffers for each shader not one for the whole scene
     // ^^ if we move methods from lib into scene impl might be able to make these fields private again
-    
     pub camera: Camera,
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub render_objects: Vec<EntityId>,
@@ -25,7 +24,11 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(shader_render_pipeline: ShaderRenderPipeline, camera_bind_group: CameraBindGroup, entity_bind_group: EntityBindGroup) -> Self{
+    pub fn new(
+        shader_render_pipeline: ShaderRenderPipeline,
+        camera_bind_group: CameraBindGroup,
+        entity_bind_group: EntityBindGroup,
+    ) -> Self {
         Self {
             shader_render_pipeline,
             camera_bind_group,
@@ -41,14 +44,35 @@ impl Scene {
         self.prefabs.insert(Prefab::new(mesh, material))
     }
 
-    pub fn add_instance(&mut self, prefab_id: PrefabId, transform: glam::Mat4, color: wgpu::Color) -> EntityId {
-        let entity_id = self.entities.insert(Entity { transform, color, mesh: None, material: None });
+    pub fn add_instance(
+        &mut self,
+        prefab_id: PrefabId,
+        transform: glam::Mat4,
+        color: wgpu::Color,
+    ) -> EntityId {
+        let entity_id = self.entities.insert(Entity {
+            transform,
+            color,
+            mesh: None,
+            material: None,
+        });
         self.prefabs[prefab_id].instances.push(entity_id);
         entity_id
     }
 
-    pub fn add_entity(&mut self, transform: glam::Mat4, color: wgpu::Color, mesh: MeshId, material: MaterialId) -> EntityId {
-        let entity_id = self.entities.insert(Entity { transform, color, mesh: Some(mesh), material: Some(material) });
+    pub fn add_entity(
+        &mut self,
+        transform: glam::Mat4,
+        color: wgpu::Color,
+        mesh: MeshId,
+        material: MaterialId,
+    ) -> EntityId {
+        let entity_id = self.entities.insert(Entity {
+            transform,
+            color,
+            mesh: Some(mesh),
+            material: Some(material),
+        });
         self.render_objects.push(entity_id);
         entity_id
     }
@@ -74,12 +98,18 @@ impl Scene {
             while target_capacity < entity_count {
                 target_capacity *= 2;
             }
-            self.entity_bind_group.recreate_entity_buffer(target_capacity, device);
+            self.entity_bind_group
+                .recreate_entity_buffer(target_capacity, device);
         }
 
         let entity_aligment = self.entity_bind_group.alignment;
 
-        for (i, entity) in self.render_objects.iter().map(|id| &self.entities[*id]).enumerate() {
+        for (i, entity) in self
+            .render_objects
+            .iter()
+            .map(|id| &self.entities[*id])
+            .enumerate()
+        {
             let data = EntityUniforms {
                 model: entity.transform.to_cols_array_2d(),
                 color: [
@@ -97,9 +127,14 @@ impl Scene {
             );
         }
 
-        let mut running_offset : usize = self.render_objects.len();
+        let mut running_offset: usize = self.render_objects.len();
         for prefab in self.prefabs.values() {
-            for (i, entity) in prefab.instances.iter().map(|id| &self.entities[*id]).enumerate() {
+            for (i, entity) in prefab
+                .instances
+                .iter()
+                .map(|id| &self.entities[*id])
+                .enumerate()
+            {
                 let data = EntityUniforms {
                     model: entity.transform.to_cols_array_2d(),
                     color: [
@@ -120,7 +155,13 @@ impl Scene {
         }
     }
 
-    pub fn render(&mut self, view: &wgpu::TextureView, depth_view: &wgpu::TextureView, encoder: &mut wgpu::CommandEncoder, resources: &Resources) {
+    pub fn render(
+        &mut self,
+        view: &wgpu::TextureView,
+        depth_view: &wgpu::TextureView,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &Resources,
+    ) {
         let camera = &self.camera;
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -146,15 +187,20 @@ impl Scene {
             }),
         });
 
-        let mut currently_bound_shader_id : bool = false; // todo: make into id once we support multiple shaders
-        let mut currently_bound_mesh_id : Option<MeshId> = None;
-        let mut currently_bound_material_id : Option<MaterialId> = None;
+        let mut currently_bound_shader_id: bool = false; // todo: make into id once we support multiple shaders
+        let mut currently_bound_mesh_id: Option<MeshId> = None;
+        let mut currently_bound_material_id: Option<MaterialId> = None;
 
         let mut running_offset = 0;
         let entity_aligment = self.entity_bind_group.alignment;
         let entity_bind_group = &self.entity_bind_group.bind_group;
 
-        for (i, entity) in self.render_objects.iter().map(|id| self.get_entity(*id)).enumerate() {
+        for (i, entity) in self
+            .render_objects
+            .iter()
+            .map(|id| self.get_entity(*id))
+            .enumerate()
+        {
             if let (Some(mesh_id), Some(material_id)) = (entity.mesh, entity.material) {
                 if currently_bound_material_id != Some(material_id) {
                     currently_bound_material_id = Some(material_id);
@@ -180,10 +226,8 @@ impl Scene {
                     currently_bound_mesh_id = Some(mesh_id);
 
                     render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                    render_pass.set_index_buffer(
-                        mesh.index_buffer.slice(..),
-                        wgpu::IndexFormat::Uint16,
-                    );
+                    render_pass
+                        .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 }
 
                 let offset = (i + running_offset) as u64 * entity_aligment;
@@ -216,10 +260,8 @@ impl Scene {
                 currently_bound_mesh_id = Some(prefab.mesh);
 
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(
-                    mesh.index_buffer.slice(..),
-                    wgpu::IndexFormat::Uint16,
-                );
+                render_pass
+                    .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             }
 
             // using uniform with offset approach of
@@ -232,4 +274,4 @@ impl Scene {
             running_offset += prefab.instances.len();
         }
     }
-} 
+}

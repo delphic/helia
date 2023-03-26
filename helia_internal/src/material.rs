@@ -12,10 +12,7 @@ pub struct Material {
 // so we can't store the material layout, bind group ahead of time like we can with the other types.
 
 impl Material {
-    pub fn new(
-        diffuse_texture: texture::Texture,
-        state: &State,
-    ) -> Self {
+    pub fn new(diffuse_texture: texture::Texture, state: &State) -> Self {
         let device = &state.device;
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: state.get_texture_bind_group_layout_ref(),

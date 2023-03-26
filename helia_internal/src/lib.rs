@@ -9,11 +9,11 @@ use winit::{
 };
 
 use camera::*;
-use mesh::*;
-use material::*;
-use shader::*;
 use entity::*;
+use material::*;
+use mesh::*;
 use scene::*;
+use shader::*;
 
 pub mod entity;
 pub mod prefab;
@@ -178,7 +178,12 @@ impl State {
             });
 
         // todo: would prefer camera,render(scene)
-        self.scene.render(&view, &self.depth_texture.view, &mut encoder,&self.resources);
+        self.scene.render(
+            &view,
+            &self.depth_texture.view,
+            &mut encoder,
+            &self.resources,
+        );
 
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -276,7 +281,9 @@ pub async fn run(mut game: Box<dyn Game>) {
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost
-                Err(wgpu::SurfaceError::Lost) => (|| { state.resize(state.size); })(),
+                Err(wgpu::SurfaceError::Lost) => (|| {
+                    state.resize(state.size);
+                })(),
                 // The system is out of memory, we should probably quit
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 // All other errors (Outdated, Timeout) should be resolved by the next frame

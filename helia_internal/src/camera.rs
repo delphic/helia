@@ -67,7 +67,7 @@ impl CameraUniform {
     }
 }
 
-/// Contains the bind group, its layout and the data to bind 
+/// Contains the bind group, its layout and the data to bind
 pub struct CameraBindGroup {
     pub layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
