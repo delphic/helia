@@ -281,9 +281,9 @@ pub async fn run(mut game: Box<dyn Game>) {
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost
-                Err(wgpu::SurfaceError::Lost) => (|| {
+                Err(wgpu::SurfaceError::Lost) => {
                     state.resize(state.size);
-                })(),
+                },
                 // The system is out of memory, we should probably quit
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 // All other errors (Outdated, Timeout) should be resolved by the next frame

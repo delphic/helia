@@ -95,7 +95,7 @@ impl CameraBindGroup {
 
         let mut uniform = CameraUniform::new();
         if let Some(camera) = camera {
-            uniform.update_view_proj(&camera);
+            uniform.update_view_proj(camera);
         }
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

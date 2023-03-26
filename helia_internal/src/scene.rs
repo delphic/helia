@@ -86,7 +86,7 @@ impl Scene {
     }
 
     pub fn update(&mut self, _elapsed: f32, queue: &wgpu::Queue, device: &wgpu::Device) {
-        self.camera_bind_group.update(&self.camera, &queue);
+        self.camera_bind_group.update(&self.camera, queue);
 
         // todo: check if any prefab instance has had material or mesh set
         // if so, assign the other (if required) and move to entities and remove from instances
@@ -169,7 +169,7 @@ impl Scene {
             color_attachments: &[
                 // This is what @location(0) in fragment shader targets
                 Some(wgpu::RenderPassColorAttachment {
-                    view: view,
+                    view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(camera.clear_color),
@@ -205,7 +205,7 @@ impl Scene {
                 if currently_bound_material_id != Some(material_id) {
                     currently_bound_material_id = Some(material_id);
 
-                    if currently_bound_shader_id != true {
+                    if !currently_bound_shader_id {
                         currently_bound_shader_id = true;
                         let shader = &self.shader_render_pipeline;
                         render_pass.set_pipeline(&shader.render_pipeline);
@@ -232,7 +232,7 @@ impl Scene {
 
                 let offset = (i + running_offset) as u64 * entity_aligment;
                 render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
-                render_pass.draw_indexed(0..mesh.index_count as u32, 0, 0..1);
+                render_pass.draw_indexed(0..mesh.index_count, 0, 0..1);
             }
         }
         running_offset += self.render_objects.len();
@@ -244,7 +244,7 @@ impl Scene {
 
             if currently_bound_material_id != Some(prefab.material) {
                 currently_bound_material_id = Some(prefab.material);
-                if currently_bound_shader_id != true {
+                if !currently_bound_shader_id {
                     currently_bound_shader_id = true;
                     let shader = &self.shader_render_pipeline;
                     render_pass.set_pipeline(&shader.render_pipeline);
@@ -269,7 +269,7 @@ impl Scene {
             for i in 0..prefab.instances.len() {
                 let offset = (i + running_offset) as u64 * entity_aligment;
                 render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
-                render_pass.draw_indexed(0..mesh.index_count as u32, 0, 0..1);
+                render_pass.draw_indexed(0..mesh.index_count, 0, 0..1);
             }
             running_offset += prefab.instances.len();
         }

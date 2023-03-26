@@ -85,11 +85,11 @@ impl EntityBindGroup {
     ) -> wgpu::BindGroup {
         let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
         device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: layout,
+            layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: buffer,
+                    buffer,
                     offset: 0,
                     size: wgpu::BufferSize::new(entity_uniforms_size),
                 }),
