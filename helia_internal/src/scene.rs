@@ -1,6 +1,6 @@
 use crate::camera::Camera;
 use crate::shader::{EntityUniforms, ShaderRenderPipeline};
-use crate::CameraBindGroup;
+use crate::{CameraBindGroup, Resources};
 use crate::EntityBindGroup;
 use crate::entity::*;
 use crate::prefab::*;
@@ -79,9 +79,6 @@ impl Scene {
 
         let entity_aligment = self.entity_bind_group.alignment;
 
-        // todo: move the render logic to this class so that the
-        // dependency on order of evaluation between buffer creation
-        // and rendering matches
         for (i, entity) in self.render_objects.iter().map(|id| &self.entities[*id]).enumerate() {
             let data = EntityUniforms {
                 model: entity.transform.to_cols_array_2d(),
@@ -118,6 +115,99 @@ impl Scene {
                     offset as wgpu::BufferAddress,
                     bytemuck::bytes_of(&data),
                 );
+            }
+            running_offset += prefab.instances.len();
+        }
+    }
+
+    pub fn render(&mut self, view: &wgpu::TextureView, depth_view: &wgpu::TextureView, encoder: &mut wgpu::CommandEncoder, resources: &Resources) {
+        let camera = &self.camera;
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[
+                // This is what @location(0) in fragment shader targets
+                Some(wgpu::RenderPassColorAttachment {
+                    view: view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(camera.clear_color),
+                        store: true,
+                    },
+                }),
+            ],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: depth_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
+        });
+
+        let mut running_offset = 0;
+        let entity_aligment = self.entity_bind_group.alignment;
+        let entity_bind_group = &self.entity_bind_group.bind_group;
+
+        for (i, entity) in self.render_objects.iter().map(|id| self.get_entity(*id)).enumerate() {
+            if let (Some(mesh), Some(material)) = (entity.mesh, entity.material) {
+                let shader = &self.shader_render_pipeline;
+                let material = &resources.materials[material];
+                let mesh = &resources.meshes[mesh];
+
+                // want to move this to something the shader does
+                render_pass.set_pipeline(&shader.render_pipeline);
+                // ^^ todo: move to material
+
+                render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
+                // ^^ don't really want to rebind this per entity (or per prefab)
+                // lets try moving it out see if it still works
+
+                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(
+                    mesh.index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint16,
+                );
+
+                let offset = (i + running_offset) as u64 * entity_aligment;
+                render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
+                render_pass.draw_indexed(0..mesh.index_count as u32, 0, 0..1);
+            }
+        }
+        running_offset += self.render_objects.len();
+
+        for prefab in self.prefabs.values() {
+            if prefab.instances.is_empty() {
+                continue;
+            }
+
+            let shader = &self.shader_render_pipeline;
+            let material = &resources.materials[prefab.material];
+            let mesh = &resources.meshes[prefab.mesh];
+
+            // want to move this to something the shader does
+            render_pass.set_pipeline(&shader.render_pipeline);
+            // ^^ todo: move to material
+
+            render_pass.set_bind_group(0, &material.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group.bind_group, &[]);
+            // Q: How do we coordinate what bind groups to set when the bind groups themselves aren't per shader?
+            // but the locations are
+
+            render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(
+                mesh.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
+
+            // using uniform with offset approach of
+            // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
+            for i in 0..prefab.instances.len() {
+                let offset = (i + running_offset) as u64 * entity_aligment;
+                render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
+                render_pass.draw_indexed(0..mesh.index_count as u32, 0, 0..1);
             }
             running_offset += prefab.instances.len();
         }
