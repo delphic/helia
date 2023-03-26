@@ -29,11 +29,6 @@ var<uniform> u_camera: CameraUniform;
 @binding(0)
 var<uniform> u_entity: Entity;
 
-// @vertex
-// fn vs_bake(@location(0) position: vec4<f32>) -> @builtin(position) vec4<f32> {
-//     return u_camera.view_proj * u_entity.world * position;
-// }
-
 @vertex
 fn vs_main(
     model: VertexInput,
