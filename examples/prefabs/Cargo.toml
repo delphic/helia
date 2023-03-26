@@ -13,9 +13,9 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 helia = { path = "../../" }
-pollster = "0.2"
-glam = "0.22"
-winit = "0.27"
+pollster = "0.3"
+glam = "0.23"
+winit = "0.28"
 wgpu = "0.14"
 log = "0.4"
 
