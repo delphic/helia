@@ -43,6 +43,7 @@ impl Resources {
 
 pub struct BuildInShaders {
     pub unlit_textured: ShaderId,
+    pub sprite: ShaderId,
 }
 
 pub struct State {
@@ -116,16 +117,23 @@ impl State {
         let texture_bind_group_layout = Material::create_bind_group_layout(&device);
 
         // Makin' shaders
-        // Currently 'sprite' shader which is used for everything
-        // although more accurately it's just UnlitTextured (w/ tint)
-        // but we intend for it to become a sprite!
         let shader = Shader::new(
             &device,
             wgpu::include_wgsl!("shaders/unlit_textured.wgsl"),
             config.format,
             &texture_bind_group_layout,
+            false,
         );
         let unlit_textured = resources.shaders.insert(shader);
+
+        let sprite_shader = Shader::new(
+            &device,
+            wgpu::include_wgsl!("shaders/unlit_textured.wgsl"),
+            config.format,
+            &texture_bind_group_layout,
+            true,
+        ); // todo: update to new wgsl with more locals aka entity uniform properties
+        let sprite = resources.shaders.insert(sprite_shader);
 
         let scene = Scene::new();
 
@@ -140,7 +148,10 @@ impl State {
             scene,
             texture_bind_group_layout,
             resources,
-            shaders: BuildInShaders { unlit_textured },
+            shaders: BuildInShaders {
+                unlit_textured,
+                sprite,
+            },
         }
     }
 

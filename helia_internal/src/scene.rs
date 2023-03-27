@@ -145,7 +145,7 @@ impl Scene {
         // specific camera and as such, todo: we should probably call it then instead, alternatively we could
         // create a set of shaders which will be used from this update, and then loop through and run an update for
         // the camera prior to the render step for the specific cameras instead
-        for (shader_id, entities) in self.scene_graph.iter() {
+        for (shader_id, entities) in self.scene_graph.iter_mut() {
             let shader = &mut resources.shaders[*shader_id];
 
             shader.camera_bind_group.update(&self.camera, queue);
@@ -160,6 +160,23 @@ impl Scene {
                 shader
                     .entity_bind_group
                     .recreate_entity_buffer(target_capacity, device);
+            }
+
+            if shader.requires_ordering {
+                // sort the entity list by distance from camera
+                // todo: now just to make this work across different shaders xD
+                entities.sort_by(|a, b| {
+                    self.entities[*a]
+                        .transform
+                        .transform_point3(self.camera.eye)
+                        .z
+                        .total_cmp(
+                            &self.entities[*b]
+                                .transform
+                                .transform_point3(self.camera.eye)
+                                .z,
+                        )
+                });
             }
 
             let entity_aligment = shader.entity_bind_group.alignment;

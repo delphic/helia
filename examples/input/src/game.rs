@@ -51,6 +51,3 @@ pub async fn run() {
     let game_state = GameState {};
     helia::run(Box::new(game_state)).await;
 }
-
-// Q: how does macroquad manage to make main async?
-// A: TL:DR "macros"

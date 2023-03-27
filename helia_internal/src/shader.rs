@@ -102,6 +102,7 @@ pub struct Shader {
     pub camera_bind_group: CameraBindGroup,
     pub entity_bind_group: EntityBindGroup,
     // ^^ these last two should be shared between shaders where possible
+    pub requires_ordering: bool,
 }
 
 impl Shader {
@@ -110,6 +111,7 @@ impl Shader {
         module_descriptor: wgpu::ShaderModuleDescriptor,
         texture_format: wgpu::TextureFormat,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
+        alpha_blending: bool, // todo: enum, cause also pre-multiplied
     ) -> Self {
         let camera_bind_group = CameraBindGroup::new(device);
         // Much of what's in camera.rs w.r.t. CameraBindGroup is dependent on shader implementation
@@ -133,6 +135,12 @@ impl Shader {
         });
         // You could conceivably share pipeline layouts between shaders with similar bind group requirements
 
+        let blend_state = if alpha_blending {
+            Some(wgpu::BlendState::ALPHA_BLENDING)
+        } else {
+            Some(wgpu::BlendState::REPLACE)
+        };
+
         let shader_module = device.create_shader_module(module_descriptor);
         // there is a pipeline per shader, determines how many buffers you send!
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -148,7 +156,7 @@ impl Shader {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: texture_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: blend_state,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -167,7 +175,7 @@ impl Shader {
             depth_stencil: Some(wgpu::DepthStencilState {
                 // Could arguably be None for 2D
                 format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
+                depth_write_enabled: !alpha_blending,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
@@ -184,6 +192,7 @@ impl Shader {
             render_pipeline,
             camera_bind_group,
             entity_bind_group,
+            requires_ordering: alpha_blending,
         }
     }
 
