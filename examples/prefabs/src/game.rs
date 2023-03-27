@@ -3,7 +3,6 @@ use helia::{
     camera::Camera, camera_controller::*, material::Material, mesh::Mesh, shader::Vertex,
     texture::Texture, *,
 };
-use winit::event::WindowEvent;
 
 const VERTICES: &[Vertex] = &[
     Vertex {
@@ -124,22 +123,11 @@ impl Game for GameState {
         }
     }
 
-    fn input(&mut self, state: &mut State, event: &winit::event::WindowEvent) -> bool {
+    fn input(&mut self, _state: &mut State, event: &winit::event::WindowEvent) -> bool {
         if let Some(camera_controller) = &mut self.camera_controller {
-            camera_controller.process_events(event);
+            return camera_controller.process_events(event);
         }
-        match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                state.scene.camera.clear_color = wgpu::Color {
-                    r: position.x / state.size.width as f64,
-                    g: 0.2,
-                    b: position.y / state.size.height as f64,
-                    a: 1.0,
-                };
-                true
-            }
-            _ => false,
-        }
+        false
     }
 
     fn resize(&mut self, state: &mut State) {
@@ -153,6 +141,3 @@ pub async fn run() {
     };
     helia::run(Box::new(game_state)).await;
 }
-
-// Q: how does macroquad manage to make main async?
-// A: TL:DR "macros"

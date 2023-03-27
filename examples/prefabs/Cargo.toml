@@ -2,7 +2,7 @@
 name = "helia-prefabs-example"
 version = "0.0.1"
 edition = "2021"
-description = "Binary and WASM exportable instances example"
+description = "Binary and WASM exportable helia prefabs example"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

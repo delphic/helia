@@ -19,7 +19,7 @@ pub struct Scene {
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub render_objects: Vec<EntityId>,
     entities: SlotMap<EntityId, Entity>,
-    scene_graph: HashMap<ShaderId, Vec<EntityId>>, 
+    scene_graph: HashMap<ShaderId, Vec<EntityId>>,
     // ^^ likely will need new format when alpha sorting implemented, currently this just keeps the offsets inline
     // todo: replace hash implemenation with faster one
 }
