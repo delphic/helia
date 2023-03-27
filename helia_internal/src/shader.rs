@@ -1,6 +1,6 @@
 use glam::*;
 
-use crate::{texture, camera::CameraBindGroup};
+use crate::{texture, camera::CameraBindGroup, entity::EntityBindGroup};
 
 // This is a perfectly legit Sprite Vertex
 #[repr(C)]
@@ -100,6 +100,8 @@ slotmap::new_key_type! { pub struct ShaderId; }
 pub struct Shader {
     pub render_pipeline: wgpu::RenderPipeline,
     pub camera_bind_group: CameraBindGroup,
+    pub entity_bind_group: EntityBindGroup,
+    // ^^ these last two should be shared between shaders where possible
 }
 
 impl Shader {
@@ -108,12 +110,16 @@ impl Shader {
         module_descriptor: wgpu::ShaderModuleDescriptor,
         texture_format: wgpu::TextureFormat,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
-        entity_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let camera_bind_group = CameraBindGroup::new(device);
         // Much of what's in camera.rs w.r.t. CameraBindGroup is dependent on shader implementation
         // Note: this bind group can and arguably should be shared between shaders, however waiting
         // for a use case
+
+        let entity_bind_group = EntityBindGroup::new(&device);
+        // Entity Bind Group will need to be specific on shader implementation, however we 
+        // anticipate it may be sharable. We may also want to consider splitting between
+        // universal (model matrix) and material specific elements (color, uvs etc) 
 
         // bind group layouts order has to match the @group declarations in the shader
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -121,7 +127,7 @@ impl Shader {
             bind_group_layouts: &[
                 &camera_bind_group.layout,
                 texture_bind_group_layout,
-                entity_bind_group_layout,
+                &entity_bind_group.layout,
             ],
             push_constant_ranges: &[],
         });
@@ -174,7 +180,7 @@ impl Shader {
             multiview: None,
         });
 
-        Self { render_pipeline, camera_bind_group }
+        Self { render_pipeline, camera_bind_group, entity_bind_group }
     }
 
     // todo: more methods for making use of render_pipeline
