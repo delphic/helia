@@ -1,4 +1,4 @@
-use crate::{texture, State, shader::ShaderId};
+use crate::{shader::ShaderId, texture, State};
 
 slotmap::new_key_type! { pub struct MaterialId; }
 
@@ -17,7 +17,7 @@ pub struct Material {
 impl Material {
     pub fn new(shader: ShaderId, diffuse_texture: texture::Texture, state: &State) -> Self {
         // todo: would be nice to provide an overload that takes a enum of BuildInShaders
-        // and that we keep track of enum -> ShaderId, that way the user only has to worry about 
+        // and that we keep track of enum -> ShaderId, that way the user only has to worry about
         // shader ids for shaders they've created
         let device = &state.device;
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {

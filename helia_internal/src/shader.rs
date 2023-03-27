@@ -1,6 +1,6 @@
 use glam::*;
 
-use crate::{texture, camera::CameraBindGroup, entity::EntityBindGroup};
+use crate::{camera::CameraBindGroup, entity::EntityBindGroup, texture};
 
 // This is a perfectly legit Sprite Vertex
 #[repr(C)]
@@ -117,9 +117,9 @@ impl Shader {
         // for a use case
 
         let entity_bind_group = EntityBindGroup::new(&device);
-        // Entity Bind Group will need to be specific on shader implementation, however we 
+        // Entity Bind Group will need to be specific on shader implementation, however we
         // anticipate it may be sharable. We may also want to consider splitting between
-        // universal (model matrix) and material specific elements (color, uvs etc) 
+        // universal (model matrix) and material specific elements (color, uvs etc)
 
         // bind group layouts order has to match the @group declarations in the shader
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -180,7 +180,11 @@ impl Shader {
             multiview: None,
         });
 
-        Self { render_pipeline, camera_bind_group, entity_bind_group }
+        Self {
+            render_pipeline,
+            camera_bind_group,
+            entity_bind_group,
+        }
     }
 
     // todo: more methods for making use of render_pipeline

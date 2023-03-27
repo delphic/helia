@@ -5,8 +5,8 @@ use crate::entity::*;
 use crate::material::*;
 use crate::mesh::*;
 use crate::prefab::*;
-use crate::shader::ShaderId;
 use crate::shader::EntityUniforms;
+use crate::shader::ShaderId;
 use crate::Resources;
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
 use slotmap::{DenseSlotMap, SlotMap};
@@ -19,6 +19,8 @@ pub struct Scene {
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub render_objects: Vec<EntityId>,
     entities: SlotMap<EntityId, Entity>,
+    scene_graph: HashMap<ShaderId, Vec<EntityId>>, 
+    // ^^ likely will need new format when alpha sorting implemented, currently this just keeps the offsets inline
     // todo: replace hash implemenation with faster one
 }
 
@@ -29,6 +31,7 @@ impl Scene {
             prefabs: DenseSlotMap::with_key(),
             render_objects: Vec::new(),
             entities: SlotMap::with_key(),
+            scene_graph: HashMap::new(),
         }
     }
 
@@ -42,13 +45,14 @@ impl Scene {
         transform: glam::Mat4,
         color: wgpu::Color,
     ) -> EntityId {
+        let prefab = self.prefabs.get_mut(prefab_id).unwrap();
         let entity_id = self.entities.insert(Entity {
             transform,
             color,
-            mesh: None,
-            material: None,
+            mesh: prefab.mesh,
+            material: prefab.material,
         });
-        self.prefabs[prefab_id].instances.push(entity_id);
+        prefab.instances.push(entity_id);
         entity_id
     }
 
@@ -62,8 +66,8 @@ impl Scene {
         let entity_id = self.entities.insert(Entity {
             transform,
             color,
-            mesh: Some(mesh),
-            material: Some(material),
+            mesh,
+            material,
         });
         self.render_objects.push(entity_id);
         entity_id
@@ -77,54 +81,71 @@ impl Scene {
         &mut self.entities[id]
     }
 
-    pub fn update(&mut self, resources: &mut Resources, queue: &wgpu::Queue, device: &wgpu::Device) {
+    pub fn update(
+        &mut self,
+        resources: &mut Resources,
+        queue: &wgpu::Queue,
+        device: &wgpu::Device,
+    ) {
         // This fills the camera and entity buffers with the appropriate information
         // all shaders which will be used are updated
 
-        // NOTE: This currently has dependnecy on scene.camera so it's explicitly a pre-render step for a 
-        // specific camera and as such, todo: we should probably call it then instead, alternatively we could 
-        // create a set of shaders which will be used from this update, and then loop through and run an update for
-        // the camera prior to the render step for the specific cameras instead
-
-        // todo: check if any prefab instance has had material or mesh set
-        // if so, assign the other (if required) and move to entities and remove from instances
+        // todo: check if any prefab instance has had material or mesh not matching prefab defn
+        // if so, move to entities and remove from instances
         // although could argue the game code should explicitly break the prefab connection rather
         // than checking every frame for something that's going to be quite rare
-        
+
         // Build Scene Graph
-        let mut entities_by_shader = HashMap::new();
+        // Stores entities by shader in the order they will be renderered
+        self.scene_graph.clear();
+
         for (id, entity) in self
             .render_objects
             .iter()
             .map(|id| (id, &self.entities[*id]))
         {
-            if let Some(material_id) = entity.material {
-                let material = &resources.materials[material_id];
-                if !entities_by_shader.contains_key(&material.shader) {
-                    entities_by_shader.insert(material.shader, Vec::new());
-                }
-                entities_by_shader.get_mut(&material.shader).unwrap().push(*id);
+            let material = &resources.materials[entity.material];
+            if !self.scene_graph.contains_key(&material.shader) {
+                self.scene_graph.insert(material.shader, Vec::new());
             }
+            self.scene_graph
+                .get_mut(&material.shader)
+                .unwrap()
+                .push(*id);
         }
+
         for prefab in self.prefabs.values() {
             let material = &resources.materials[prefab.material];
-            if !entities_by_shader.contains_key(&material.shader) {
-                entities_by_shader.insert(material.shader, Vec::new());
-                resources.shaders[material.shader].camera_bind_group.update(&self.camera, queue);
+            if !self.scene_graph.contains_key(&material.shader) {
+                self.scene_graph.insert(material.shader, Vec::new());
+                resources.shaders[material.shader]
+                    .camera_bind_group
+                    .update(&self.camera, queue);
             }
+            // NOTE: does not support mutating the material id of prefab instances
+            // but it does read them directly so you could easily cause an issue by changing
+            // a prefab instance material id to a one using a shader which was not otherwise
+            // used in the scene. We could consider separating MeshId / MaterialId store from
+            // the data we do expect the game to mutate (e.g. transform).
 
-            for id in prefab
-                .instances
-                .iter()
-            {
-                entities_by_shader.get_mut(&material.shader).unwrap().push(*id);
+            // Also by just adding entities individually to the very basic scene graph
+            // we've lost the ability to check bindings once per prefab, however we had not
+            // profiled that so we should not lament its loss. If we wanted to see if it was an
+            // improvement, then we would need an entity buffer per prefab
+            let entities = &mut self.scene_graph.get_mut(&material.shader).unwrap();
+            for id in prefab.instances.iter() {
+                entities.push(*id);
             }
         }
-        // todo: store this and enumerate over it in scene render
         // todo: remove the straight get_mut unwraps?
 
-        // Enumerate over scene graph and VBOs
-        for (shader_id, entities) in entities_by_shader.iter() {
+        // Enumerate over scene graph and build entity buffers
+
+        // NOTE: This currently has dependnecy on scene.camera so it's explicitly a pre-render step for a
+        // specific camera and as such, todo: we should probably call it then instead, alternatively we could
+        // create a set of shaders which will be used from this update, and then loop through and run an update for
+        // the camera prior to the render step for the specific cameras instead
+        for (shader_id, entities) in self.scene_graph.iter() {
             let shader = &mut resources.shaders[*shader_id];
 
             shader.camera_bind_group.update(&self.camera, queue);
@@ -136,7 +157,8 @@ impl Scene {
                 while target_capacity < entity_count {
                     target_capacity *= 2;
                 }
-                shader.entity_bind_group
+                shader
+                    .entity_bind_group
                     .recreate_entity_buffer(target_capacity, device);
             }
 
@@ -197,24 +219,17 @@ impl Scene {
         let mut currently_bound_mesh_id: Option<MeshId> = None;
         let mut currently_bound_material_id: Option<MaterialId> = None;
 
-        let mut running_offset = 0;
-
-        for (i, entity) in self
-            .render_objects
-            .iter()
-            .map(|id| self.get_entity(*id))
-            .enumerate()
-        {
-            if let (Some(mesh_id), Some(material_id)) = (entity.mesh, entity.material) {
-                let mesh = &resources.meshes[mesh_id];
-                let material = &resources.materials[material_id];
+        for (_, entities) in self.scene_graph.iter() {
+            for (i, entity) in entities.iter().map(|id| self.get_entity(*id)).enumerate() {
+                let mesh = &resources.meshes[entity.mesh];
+                let material = &resources.materials[entity.material];
                 let shader = &resources.shaders[material.shader];
 
                 let entity_bind_group = &shader.entity_bind_group.bind_group;
                 let entity_aligment = shader.entity_bind_group.alignment;
 
-                if currently_bound_material_id != Some(material_id) {
-                    currently_bound_material_id = Some(material_id);
+                if currently_bound_material_id != Some(entity.material) {
+                    currently_bound_material_id = Some(entity.material);
 
                     if currently_bound_shader_id != Some(material.shader) {
                         currently_bound_shader_id = Some(material.shader);
@@ -230,61 +245,20 @@ impl Scene {
                     // to group materials with the same textures
                 }
 
-                if currently_bound_mesh_id != Some(mesh_id) {
-                    currently_bound_mesh_id = Some(mesh_id);
+                if currently_bound_mesh_id != Some(entity.mesh) {
+                    currently_bound_mesh_id = Some(entity.mesh);
 
                     render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                     render_pass
                         .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 }
 
-                let offset = (i + running_offset) as u64 * entity_aligment;
+                // using uniform with offset approach of
+                // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
+                let offset = i as u64 * entity_aligment;
                 render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
                 render_pass.draw_indexed(0..mesh.index_count, 0, 0..1);
             }
-        }
-        running_offset += self.render_objects.len();
-
-        for prefab in self.prefabs.values() {
-            if prefab.instances.is_empty() {
-                continue;
-            }
-
-            let material = &resources.materials[prefab.material];
-            let shader = &resources.shaders[material.shader];
-            let mesh = &resources.meshes[prefab.mesh];
-
-            let entity_bind_group = &shader.entity_bind_group.bind_group;
-            let entity_aligment = shader.entity_bind_group.alignment;
-
-            if currently_bound_material_id != Some(prefab.material) {
-                currently_bound_material_id = Some(prefab.material);
-
-                if currently_bound_shader_id != Some(material.shader) {
-                    currently_bound_shader_id = Some(material.shader);
-                    render_pass.set_pipeline(&shader.render_pipeline);
-                    render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]);
-                }
-
-                render_pass.set_bind_group(1, &material.diffuse_bind_group, &[]);
-            }
-
-            if currently_bound_mesh_id != Some(prefab.mesh) {
-                currently_bound_mesh_id = Some(prefab.mesh);
-
-                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            }
-
-            // using uniform with offset approach of
-            // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
-            for i in 0..prefab.instances.len() {
-                let offset = (i + running_offset) as u64 * entity_aligment;
-                render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
-                render_pass.draw_indexed(0..mesh.index_count, 0, 0..1);
-            }
-            running_offset += prefab.instances.len();
         }
     }
 }

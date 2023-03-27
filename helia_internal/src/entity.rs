@@ -12,8 +12,8 @@ slotmap::new_key_type! { pub struct EntityId; }
 pub struct Entity {
     pub transform: glam::Mat4,
     pub color: wgpu::Color,
-    pub mesh: Option<MeshId>,
-    pub material: Option<MaterialId>,
+    pub mesh: MeshId,
+    pub material: MaterialId,
 }
 
 pub struct EntityBindGroup {

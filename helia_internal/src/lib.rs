@@ -36,7 +36,7 @@ impl Resources {
         Self {
             meshes: SlotMap::with_key(),
             materials: SlotMap::with_key(),
-            shaders: SlotMap::with_key(), 
+            shaders: SlotMap::with_key(),
         }
     }
 }
@@ -165,7 +165,8 @@ impl State {
     }
 
     fn update(&mut self, _elapsed: f32) {
-        self.scene.update(&mut self.resources, &self.queue, &self.device);
+        self.scene
+            .update(&mut self.resources, &self.queue, &self.device);
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -287,7 +288,7 @@ pub async fn run(mut game: Box<dyn Game>) {
                 // Reconfigure the surface if lost
                 Err(wgpu::SurfaceError::Lost) => {
                     state.resize(state.size);
-                },
+                }
                 // The system is out of memory, we should probably quit
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 // All other errors (Outdated, Timeout) should be resolved by the next frame
