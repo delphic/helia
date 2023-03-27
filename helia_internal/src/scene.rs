@@ -19,9 +19,7 @@ pub struct Scene {
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub render_objects: Vec<EntityId>,
     entities: SlotMap<EntityId, Entity>,
-    scene_graph: HashMap<ShaderId, Vec<EntityId>>,
-    // ^^ likely will need new format when alpha sorting implemented, currently this just keeps the offsets inline
-    // todo: replace hash implemenation with faster one
+    scene_graph: Vec<EntityId>,
 }
 
 impl Scene {
@@ -31,7 +29,7 @@ impl Scene {
             prefabs: DenseSlotMap::with_key(),
             render_objects: Vec::new(),
             entities: SlotMap::with_key(),
-            scene_graph: HashMap::new(),
+            scene_graph: Vec::new(),
         }
     }
 
@@ -51,6 +49,7 @@ impl Scene {
             color,
             mesh: prefab.mesh,
             material: prefab.material,
+            uniform_offset: 0,
         });
         prefab.instances.push(entity_id);
         entity_id
@@ -68,6 +67,7 @@ impl Scene {
             color,
             mesh,
             material,
+            uniform_offset: 0,
         });
         self.render_objects.push(entity_id);
         entity_id
@@ -95,9 +95,10 @@ impl Scene {
         // although could argue the game code should explicitly break the prefab connection rather
         // than checking every frame for something that's going to be quite rare
 
-        // Build Scene Graph
-        // Stores entities by shader in the order they will be renderered
-        self.scene_graph.clear();
+        // Build list of entities by shader so we can build the uniform buffers appropraitely
+        // Arguably we could just iterate over all entities, if the shader were to keep track of
+        // it's current uniform offset... would probably be faster than building a hashmap.
+        let mut entities_by_shader = HashMap::new();
 
         for (id, entity) in self
             .render_objects
@@ -105,10 +106,10 @@ impl Scene {
             .map(|id| (id, &self.entities[*id]))
         {
             let material = &resources.materials[entity.material];
-            if !self.scene_graph.contains_key(&material.shader) {
-                self.scene_graph.insert(material.shader, Vec::new());
+            if !entities_by_shader.contains_key(&material.shader) {
+                entities_by_shader.insert(material.shader, Vec::new());
             }
-            self.scene_graph
+            entities_by_shader
                 .get_mut(&material.shader)
                 .unwrap()
                 .push(*id);
@@ -116,8 +117,8 @@ impl Scene {
 
         for prefab in self.prefabs.values() {
             let material = &resources.materials[prefab.material];
-            if !self.scene_graph.contains_key(&material.shader) {
-                self.scene_graph.insert(material.shader, Vec::new());
+            if !entities_by_shader.contains_key(&material.shader) {
+                entities_by_shader.insert(material.shader, Vec::new());
                 resources.shaders[material.shader]
                     .camera_bind_group
                     .update(&self.camera, queue);
@@ -132,20 +133,22 @@ impl Scene {
             // we've lost the ability to check bindings once per prefab, however we had not
             // profiled that so we should not lament its loss. If we wanted to see if it was an
             // improvement, then we would need an entity buffer per prefab
-            let entities = &mut self.scene_graph.get_mut(&material.shader).unwrap();
+            let entities = &mut entities_by_shader.get_mut(&material.shader).unwrap();
             for id in prefab.instances.iter() {
                 entities.push(*id);
             }
         }
         // todo: remove the straight get_mut unwraps?
 
-        // Enumerate over scene graph and build entity buffers
+        // Enumerate over shader to entity map and build entity buffers and ordered scene graph
+        let mut alpha_entities = Vec::new();
+        self.scene_graph.clear();
 
         // NOTE: This currently has dependnecy on scene.camera so it's explicitly a pre-render step for a
         // specific camera and as such, todo: we should probably call it then instead, alternatively we could
         // create a set of shaders which will be used from this update, and then loop through and run an update for
         // the camera prior to the render step for the specific cameras instead
-        for (shader_id, entities) in self.scene_graph.iter_mut() {
+        for (shader_id, entities) in entities_by_shader.iter_mut() {
             let shader = &mut resources.shaders[*shader_id];
 
             shader.camera_bind_group.update(&self.camera, queue);
@@ -162,25 +165,9 @@ impl Scene {
                     .recreate_entity_buffer(target_capacity, device);
             }
 
-            if shader.requires_ordering {
-                // sort the entity list by distance from camera
-                // todo: now just to make this work across different shaders xD
-                entities.sort_by(|a, b| {
-                    self.entities[*a]
-                        .transform
-                        .transform_point3(self.camera.eye)
-                        .z
-                        .total_cmp(
-                            &self.entities[*b]
-                                .transform
-                                .transform_point3(self.camera.eye)
-                                .z,
-                        )
-                });
-            }
-
             let entity_aligment = shader.entity_bind_group.alignment;
-            for (i, entity) in entities.iter().map(|id| &self.entities[*id]).enumerate() {
+            for (i, id) in entities.iter().enumerate() {
+                let mut entity = self.entities.get_mut(*id).unwrap();
                 let data = EntityUniforms {
                     model: entity.transform.to_cols_array_2d(),
                     color: [
@@ -190,14 +177,35 @@ impl Scene {
                         entity.color.a as f32,
                     ],
                 };
-                let offset = i as u64 * entity_aligment;
+                entity.uniform_offset = i as u64 * entity_aligment;
                 queue.write_buffer(
                     &shader.entity_bind_group.buffer,
-                    offset as wgpu::BufferAddress,
+                    entity.uniform_offset as wgpu::BufferAddress,
                     bytemuck::bytes_of(&data),
                 );
             }
+
+            if shader.requires_ordering {
+                alpha_entities.append(entities);
+            } else {
+                self.scene_graph.append(entities);
+            }
         }
+
+        // All the opaque objects are in the 'graph', ordered alpha objects
+        alpha_entities.sort_by(|a, b| {
+            self.entities[*a]
+                .transform
+                .transform_point3(self.camera.eye)
+                .z
+                .total_cmp(
+                    &self.entities[*b]
+                        .transform
+                        .transform_point3(self.camera.eye)
+                        .z,
+                )
+        });
+        self.scene_graph.append(&mut alpha_entities);
     }
 
     pub fn render(
@@ -236,46 +244,46 @@ impl Scene {
         let mut currently_bound_mesh_id: Option<MeshId> = None;
         let mut currently_bound_material_id: Option<MaterialId> = None;
 
-        for (_, entities) in self.scene_graph.iter() {
-            for (i, entity) in entities.iter().map(|id| self.get_entity(*id)).enumerate() {
-                let mesh = &resources.meshes[entity.mesh];
-                let material = &resources.materials[entity.material];
-                let shader = &resources.shaders[material.shader];
+        for entity in self.scene_graph.iter().map(|id| &self.entities[*id]) {
+            let mesh = &resources.meshes[entity.mesh];
+            let material = &resources.materials[entity.material];
+            let shader = &resources.shaders[material.shader];
 
-                let entity_bind_group = &shader.entity_bind_group.bind_group;
-                let entity_aligment = shader.entity_bind_group.alignment;
+            let entity_bind_group = &shader.entity_bind_group.bind_group;
 
-                if currently_bound_material_id != Some(entity.material) {
-                    currently_bound_material_id = Some(entity.material);
+            if currently_bound_material_id != Some(entity.material) {
+                currently_bound_material_id = Some(entity.material);
 
-                    if currently_bound_shader_id != Some(material.shader) {
-                        currently_bound_shader_id = Some(material.shader);
-                        render_pass.set_pipeline(&shader.render_pipeline);
-                        render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]);
-                    }
-
-                    render_pass.set_bind_group(1, &material.diffuse_bind_group, &[]);
-                    // We're presumably going to share the layout for textures across shaders
-                    // therefore we can and should share texture bind groups across materials
-                    // only rebind when appropriate, rather than rebinding per material
-                    // however should only do this is we're bothering to order the scene graph
-                    // to group materials with the same textures
+                if currently_bound_shader_id != Some(material.shader) {
+                    currently_bound_shader_id = Some(material.shader);
+                    render_pass.set_pipeline(&shader.render_pipeline);
+                    render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]);
                 }
 
-                if currently_bound_mesh_id != Some(entity.mesh) {
-                    currently_bound_mesh_id = Some(entity.mesh);
-
-                    render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                    render_pass
-                        .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                }
-
-                // using uniform with offset approach of
-                // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
-                let offset = i as u64 * entity_aligment;
-                render_pass.set_bind_group(2, entity_bind_group, &[offset as wgpu::DynamicOffset]);
-                render_pass.draw_indexed(0..mesh.index_count, 0, 0..1);
+                render_pass.set_bind_group(1, &material.diffuse_bind_group, &[]);
+                // We're presumably going to share the layout for textures across shaders
+                // therefore we can and should share texture bind groups across materials
+                // only rebind when appropriate, rather than rebinding per material
+                // however should only do this is we're bothering to order the scene graph
+                // to group materials with the same textures
             }
+
+            if currently_bound_mesh_id != Some(entity.mesh) {
+                currently_bound_mesh_id = Some(entity.mesh);
+
+                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                render_pass
+                    .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            }
+
+            // using uniform with offset approach of
+            // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
+            render_pass.set_bind_group(
+                2,
+                entity_bind_group,
+                &[entity.uniform_offset as wgpu::DynamicOffset],
+            );
+            render_pass.draw_indexed(0..mesh.index_count, 0, 0..1);
         }
     }
 }

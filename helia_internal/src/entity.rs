@@ -10,10 +10,13 @@ use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 slotmap::new_key_type! { pub struct EntityId; }
 
 pub struct Entity {
+    // local properties
     pub transform: glam::Mat4,
     pub color: wgpu::Color,
+    // render details
     pub mesh: MeshId,
     pub material: MaterialId,
+    pub uniform_offset: u64,
 }
 
 pub struct EntityBindGroup {
