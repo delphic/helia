@@ -192,18 +192,16 @@ impl Scene {
             }
         }
 
-        // All the opaque objects are in the 'graph', ordered alpha objects
+        // All the opaque objects are in the 'graph', now add depth ordered alpha objects
+        let camera_transform = glam::Mat4::look_at_rh(self.camera.eye, self.camera.target, glam::Vec3::Y); 
         alpha_entities.sort_by(|a, b| {
-            self.entities[*a]
-                .transform
-                .transform_point3(self.camera.eye)
-                .z
-                .total_cmp(
-                    &self.entities[*b]
-                        .transform
-                        .transform_point3(self.camera.eye)
-                        .z,
-                )
+            // This quite possibly works because transform_point results in -translation
+            // and then we're sorting from front to back, rather than back to front
+            let world_pos_a = self.entities[*a].transform.transform_point3(glam::Vec3::ZERO);
+            let world_pos_b = self.entities[*b].transform.transform_point3(glam::Vec3::ZERO);
+            let a_z = camera_transform.transform_point3(world_pos_a).z;
+            let b_z = camera_transform.transform_point3(world_pos_b).z;
+            a_z.total_cmp(&b_z)
         });
         self.scene_graph.append(&mut alpha_entities);
     }
