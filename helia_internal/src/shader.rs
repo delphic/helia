@@ -1,6 +1,10 @@
 use glam::*;
 
-use crate::{camera::CameraBindGroup, entity::EntityBindGroup, texture};
+use crate::{
+    camera::CameraBindGroup,
+    entity::{Entity, EntityBindGroup},
+    texture,
+};
 
 // This is a perfectly legit Sprite Vertex
 #[repr(C)]
@@ -38,6 +42,27 @@ pub struct EntityUniforms {
     pub color: [f32; 4],
 }
 // for sprite shader
+
+impl EntityUniforms {
+    // would kinda prefer it if I could just have a function to return the bytes, but it yells at me...
+    pub fn write_uniforms(entity: &Entity, buffer: &wgpu::Buffer, queue: &wgpu::Queue) {
+        let data = EntityUniforms {
+            model: entity.transform.to_cols_array_2d(),
+            color: [
+                entity.color.r as f32,
+                entity.color.g as f32,
+                entity.color.b as f32,
+                entity.color.a as f32,
+            ],
+        };
+
+        queue.write_buffer(
+            buffer,
+            entity.uniform_offset as wgpu::BufferAddress,
+            bytemuck::bytes_of(&data),
+        );
+    }
+}
 
 pub struct Instance {
     pub position: Vec3,
@@ -103,6 +128,7 @@ pub struct Shader {
     pub entity_bind_group: EntityBindGroup,
     // ^^ these last two should be shared between shaders where possible
     pub requires_ordering: bool,
+    write_entity_uniform_delegate: fn(entity: &Entity, buffer: &wgpu::Buffer, queue: &wgpu::Queue),
 }
 
 impl Shader {
@@ -112,6 +138,11 @@ impl Shader {
         texture_format: wgpu::TextureFormat,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         alpha_blending: bool, // todo: enum, cause also pre-multiplied
+        write_entity_uniform_delegate: fn(
+            entity: &Entity,
+            buffer: &wgpu::Buffer,
+            queue: &wgpu::Queue,
+        ),
     ) -> Self {
         let camera_bind_group = CameraBindGroup::new(device);
         // Much of what's in camera.rs w.r.t. CameraBindGroup is dependent on shader implementation
@@ -193,8 +224,12 @@ impl Shader {
             camera_bind_group,
             entity_bind_group,
             requires_ordering: alpha_blending,
+            write_entity_uniform_delegate,
         }
     }
 
-    // todo: more methods for making use of render_pipeline
+    pub fn write_entity_uniforms(&self, entity: &mut Entity, offset: u64, queue: &wgpu::Queue) {
+        entity.uniform_offset = offset * self.entity_bind_group.alignment;
+        (self.write_entity_uniform_delegate)(entity, &self.entity_bind_group.buffer, queue);
+    }
 }

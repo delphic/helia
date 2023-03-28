@@ -5,7 +5,6 @@ use crate::entity::*;
 use crate::material::*;
 use crate::mesh::*;
 use crate::prefab::*;
-use crate::shader::EntityUniforms;
 use crate::shader::ShaderId;
 use crate::Resources;
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
@@ -165,24 +164,9 @@ impl Scene {
                     .recreate_entity_buffer(target_capacity, device);
             }
 
-            let entity_aligment = shader.entity_bind_group.alignment;
             for (i, id) in entities.iter().enumerate() {
-                let mut entity = self.entities.get_mut(*id).unwrap();
-                let data = EntityUniforms {
-                    model: entity.transform.to_cols_array_2d(),
-                    color: [
-                        entity.color.r as f32,
-                        entity.color.g as f32,
-                        entity.color.b as f32,
-                        entity.color.a as f32,
-                    ],
-                };
-                entity.uniform_offset = i as u64 * entity_aligment;
-                queue.write_buffer(
-                    &shader.entity_bind_group.buffer,
-                    entity.uniform_offset as wgpu::BufferAddress,
-                    bytemuck::bytes_of(&data),
-                );
+                let entity = self.entities.get_mut(*id).unwrap();
+                shader.write_entity_uniforms(entity, i as u64, queue);
             }
 
             if shader.requires_ordering {
@@ -193,12 +177,17 @@ impl Scene {
         }
 
         // All the opaque objects are in the 'graph', now add depth ordered alpha objects
-        let camera_transform = glam::Mat4::look_at_rh(self.camera.eye, self.camera.target, glam::Vec3::Y); 
+        let camera_transform =
+            glam::Mat4::look_at_rh(self.camera.eye, self.camera.target, glam::Vec3::Y);
         alpha_entities.sort_by(|a, b| {
             // This quite possibly works because transform_point results in -translation
             // and then we're sorting from front to back, rather than back to front
-            let world_pos_a = self.entities[*a].transform.transform_point3(glam::Vec3::ZERO);
-            let world_pos_b = self.entities[*b].transform.transform_point3(glam::Vec3::ZERO);
+            let world_pos_a = self.entities[*a]
+                .transform
+                .transform_point3(glam::Vec3::ZERO);
+            let world_pos_b = self.entities[*b]
+                .transform
+                .transform_point3(glam::Vec3::ZERO);
             let a_z = camera_transform.transform_point3(world_pos_a).z;
             let b_z = camera_transform.transform_point3(world_pos_b).z;
             a_z.total_cmp(&b_z)
