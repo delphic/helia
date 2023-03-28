@@ -138,6 +138,7 @@ impl Shader {
         texture_format: wgpu::TextureFormat,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         alpha_blending: bool, // todo: enum, cause also pre-multiplied
+        entity_uniforms_size: usize,
         write_entity_uniform_delegate: fn(
             entity: &Entity,
             buffer: &wgpu::Buffer,
@@ -149,10 +150,12 @@ impl Shader {
         // Note: this bind group can and arguably should be shared between shaders, however waiting
         // for a use case
 
-        let entity_bind_group = EntityBindGroup::new(&device);
-        // Entity Bind Group will need to be specific on shader implementation, however we
-        // anticipate it may be sharable. We may also want to consider splitting between
-        // universal (model matrix) and material specific elements (color, uvs etc)
+        let entity_bind_group = EntityBindGroup::new(entity_uniforms_size, &device);
+        // Entity Bind Group is specific on shader implementation (the fact it's an individual uniform
+        // in binding 0) and it's bound per entity, but this is extremely general, it is also depednent
+        // upon the size of the uniforms for the specific shader, however we anticipate it may still be
+        // sharable. We may also want to consider splitting between more universal (model matrix) properties
+        // and material specific elements (color, uvs etc) to encourage reuse if we get to the point of sharing
 
         // bind group layouts order has to match the @group declarations in the shader
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

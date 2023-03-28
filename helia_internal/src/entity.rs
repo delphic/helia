@@ -28,8 +28,8 @@ pub struct EntityBindGroup {
 }
 
 impl EntityBindGroup {
-    pub fn new(device: &wgpu::Device) -> Self {
-        let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
+    pub fn new(entity_uniforms_size: usize, device: &wgpu::Device) -> Self {
+        let entity_uniforms_size = entity_uniforms_size as wgpu::BufferAddress;
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
@@ -44,38 +44,38 @@ impl EntityBindGroup {
             label: None,
         });
 
-        const INITIAL_ENTITY_CAPACITY: u64 = 128;
-        let buffer = Self::create_buffer(INITIAL_ENTITY_CAPACITY, device);
+        let alignment = wgpu::util::align_to(
+            entity_uniforms_size,
+            device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress,
+        );
+
+        const INITIAL_ENTITY_CAPACITY: u64 = 32;
+        let buffer = Self::create_buffer(INITIAL_ENTITY_CAPACITY, alignment, device);
         let bind_group = Self::create_bind_group(&layout, &buffer, device);
 
         Self {
             layout,
             bind_group,
             buffer,
-            alignment: Self::calculate_alignment(device),
+            alignment,
             entity_capacity: INITIAL_ENTITY_CAPACITY,
         }
     }
 
     pub fn recreate_entity_buffer(&mut self, capacity: u64, device: &wgpu::Device) {
         self.entity_capacity = capacity;
-        self.buffer = Self::create_buffer(self.entity_capacity, device);
+        self.buffer = Self::create_buffer(self.entity_capacity, self.alignment, device);
         self.bind_group = Self::create_bind_group(&self.layout, &self.buffer, device);
     }
 
-    fn calculate_alignment(device: &wgpu::Device) -> wgpu::BufferAddress {
-        // Dynamic uniform offsets also have to be aligned to `Limits::min_uniform_buffer_offset_alignment`.
-        let entity_uniforms_size = std::mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
-        wgpu::util::align_to(
-            entity_uniforms_size,
-            device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress,
-        )
-    }
-
-    fn create_buffer(entity_capacity: u64, device: &wgpu::Device) -> wgpu::Buffer {
+    fn create_buffer(
+        entity_capacity: u64,
+        alignment: wgpu::BufferAddress,
+        device: &wgpu::Device,
+    ) -> wgpu::Buffer {
         device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: entity_capacity * Self::calculate_alignment(device),
+            size: entity_capacity * alignment,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         })

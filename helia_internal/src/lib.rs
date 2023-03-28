@@ -123,6 +123,7 @@ impl State {
             config.format,
             &texture_bind_group_layout,
             false,
+            std::mem::size_of::<EntityUniforms>(),
             EntityUniforms::write_uniforms,
         );
         let unlit_textured = resources.shaders.insert(shader);
@@ -133,6 +134,7 @@ impl State {
             config.format,
             &texture_bind_group_layout,
             true,
+            std::mem::size_of::<EntityUniforms>(),
             EntityUniforms::write_uniforms,
         ); // todo: update to new wgsl with more locals aka entity uniform properties
         let sprite = resources.shaders.insert(sprite_shader);
