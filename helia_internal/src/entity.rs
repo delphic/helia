@@ -1,3 +1,5 @@
+use glam::{Vec2, Mat4};
+
 use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 
 // This is really a render object at the moment
@@ -5,18 +7,41 @@ use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 // with the requirements the geometry (mesh) and the specification of
 // the shader (via material, currently implicit)
 
-// Currently only applies to sprites, and has to be used with prefabs
-
+// Currently storing requirements of all supported shaders, eventually
+// we'll need the ability to retrieve information modularly if we want
+// the game to be able to extend the properties a shader can act upon
+// and if want to avoid properties that have no effect for certain entities
 slotmap::new_key_type! { pub struct EntityId; }
 
 pub struct Entity {
-    // local properties
-    pub transform: glam::Mat4,
-    pub color: wgpu::Color,
     // render details
     pub mesh: MeshId,
     pub material: MaterialId,
     pub uniform_offset: u64,
+    // local properties
+    pub transform: Mat4,
+    pub color: wgpu::Color,
+    pub uv_offset: Vec2,
+    pub uv_scale: Vec2,
+}
+
+impl Entity {
+    pub fn new(mesh: MeshId, material: MaterialId, transform: Mat4, color: wgpu::Color, uv_offset: Vec2, uv_scale: Vec2) -> Self {
+        Self {
+            mesh,
+            material,
+            uniform_offset: 0,
+            transform,
+            color,
+            uv_offset,
+            uv_scale
+        }
+    }
+
+    pub fn with_transform(mesh: MeshId, material: MaterialId, transform: Mat4) -> Self {
+        Self::new(mesh, material, transform, wgpu::Color::WHITE, Vec2::ZERO, Vec2::ONE)
+    }
+    // todo: builder pattern might be nie ^^
 }
 
 pub struct EntityBindGroup {

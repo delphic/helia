@@ -91,11 +91,7 @@ impl Game for GameState {
                         )
                     };
 
-                    // todo: demonstrate changing color per instance
-                    (
-                        glam::Mat4::from_rotation_translation(rotation, position),
-                        wgpu::Color::WHITE,
-                    )
+                    glam::Mat4::from_rotation_translation(rotation, position)
                 })
             })
             .collect::<Vec<_>>();
@@ -106,13 +102,13 @@ impl Game for GameState {
         let lena_prefab_id = state.scene.create_prefab(mesh_id, black_material_id);
         let lena_alt_prefab_id = state.scene.create_prefab(mesh_id, rink_material_id);
 
-        for (i, (transform, color)) in instances.iter().enumerate() {
+        for (i, transform) in instances.iter().enumerate() {
             if i % 2 == 0 {
-                state.scene.add_instance(lena_prefab_id, *transform, *color);
+                state.scene.add_instance(lena_prefab_id, *transform);
             } else {
                 state
                     .scene
-                    .add_instance(lena_alt_prefab_id, *transform, *color);
+                    .add_instance(lena_alt_prefab_id, *transform);
             }
         }
     }

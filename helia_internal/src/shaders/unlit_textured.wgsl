@@ -15,26 +15,29 @@ struct VertexOutput {
 struct Entity {
     world: mat4x4<f32>,
     color: vec4<f32>,
+    uv_offset: vec2<f32>,
+    uv_scale: vec2<f32>,
 };
 
 @group(0) @binding(0)
 var<uniform> u_camera: CameraUniform;
 
-@group(1) @binding(0)
-var t_diffuse: texture_2d<f32>;
-@group(1) @binding(1)
-var s_diffuse: sampler;
-
-@group(2)
+@group(1)
 @binding(0)
 var<uniform> u_entity: Entity;
+
+@group(2) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(2) @binding(1)
+var s_diffuse: sampler;
+
 
 @vertex
 fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.tex_coords = model.tex_coords;
+    out.tex_coords = model.tex_coords * u_entity.uv_scale + u_entity.uv_offset;
     out.clip_position = u_camera.view_proj * u_entity.world * vec4<f32>(model.position, 1.0);
     return out;
 }

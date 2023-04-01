@@ -118,12 +118,11 @@ impl Game for GameState {
         let mesh_id = state.resources.meshes.insert(mesh);
 
         let transform = glam::Mat4::from_rotation_translation(Quat::IDENTITY, Vec3::ZERO);
-        let color = wgpu::Color::WHITE;
 
         self.cube = Some(
             state
                 .scene
-                .add_entity(transform, color, mesh_id, material_id),
+                .add_entity(transform, mesh_id, material_id),
         );
     }
 

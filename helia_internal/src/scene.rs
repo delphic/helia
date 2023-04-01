@@ -11,9 +11,6 @@ use crate::Resources;
 use slotmap::{DenseSlotMap, SlotMap};
 
 pub struct Scene {
-    // this feels like renderer / context internal state
-    // todo: this is specific per shader, so we need different buffers for each shader not one for the whole scene
-    // ^^ if we move methods from lib into scene impl might be able to make these fields private again
     pub camera: Camera,
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub render_objects: Vec<EntityId>,
@@ -36,20 +33,18 @@ impl Scene {
         self.prefabs.insert(Prefab::new(mesh, material))
     }
 
+    // todo: having the scene properties take each potential entity property as arguments is not scalable,
+    // need to either take an entity directly or some kind of properties object which locals and then these
+    // methods control the addition of mesh / material to the actual entity, I think the latter is probably 
+    // preferable as otherwise the prefab concept loses meaning.
+
     pub fn add_instance(
         &mut self,
         prefab_id: PrefabId,
         transform: glam::Mat4,
-        color: wgpu::Color,
     ) -> EntityId {
         let prefab = self.prefabs.get_mut(prefab_id).unwrap();
-        let entity_id = self.entities.insert(Entity {
-            transform,
-            color,
-            mesh: prefab.mesh,
-            material: prefab.material,
-            uniform_offset: 0,
-        });
+        let entity_id = self.entities.insert(Entity::with_transform(prefab.mesh, prefab.material, transform));
         prefab.instances.push(entity_id);
         entity_id
     }
@@ -57,17 +52,10 @@ impl Scene {
     pub fn add_entity(
         &mut self,
         transform: glam::Mat4,
-        color: wgpu::Color,
         mesh: MeshId,
         material: MaterialId,
     ) -> EntityId {
-        let entity_id = self.entities.insert(Entity {
-            transform,
-            color,
-            mesh,
-            material,
-            uniform_offset: 0,
-        });
+        let entity_id = self.entities.insert(Entity::with_transform(mesh, material, transform));
         self.render_objects.push(entity_id);
         entity_id
     }
@@ -247,7 +235,7 @@ impl Scene {
                     render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]);
                 }
 
-                render_pass.set_bind_group(1, &material.diffuse_bind_group, &[]);
+                render_pass.set_bind_group(2, &material.diffuse_bind_group, &[]);
                 // We're presumably going to share the layout for textures across shaders
                 // therefore we can and should share texture bind groups across materials
                 // only rebind when appropriate, rather than rebinding per material
@@ -266,7 +254,7 @@ impl Scene {
             // using uniform with offset approach of
             // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
             render_pass.set_bind_group(
-                2,
+                1,
                 entity_bind_group,
                 &[entity.uniform_offset as wgpu::DynamicOffset],
             );

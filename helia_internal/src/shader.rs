@@ -40,6 +40,8 @@ impl Vertex {
 pub struct EntityUniforms {
     pub model: [[f32; 4]; 4],
     pub color: [f32; 4],
+    pub uv_offset: [f32; 2],
+    pub uv_scale: [f32; 2],
 }
 // for sprite shader
 
@@ -53,6 +55,8 @@ impl EntityUniforms {
                 entity.color.b as f32,
                 entity.color.a as f32,
             ],
+            uv_offset: entity.uv_offset.to_array(),
+            uv_scale: entity.uv_scale.to_array(),
         };
         Vec::from(bytemuck::bytes_of(&data))
     }
@@ -152,8 +156,8 @@ impl Shader {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[
                 &camera_bind_group.layout,
-                texture_bind_group_layout,
                 &entity_bind_group.layout,
+                texture_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });

@@ -117,15 +117,13 @@ impl Game for GameState {
         let mesh = Mesh::new(vertices.as_slice(), CUBE_INDICES, &device);
         let mesh_id = state.resources.meshes.insert(mesh);
 
-        let color = wgpu::Color::WHITE;
-
         for i in 0..3 {
             let transform =
                 glam::Mat4::from_rotation_translation(Quat::IDENTITY, -2.0 * (i as f32) * Vec3::Z);
             self.cubes.push(
                 state
                     .scene
-                    .add_entity(transform, color, mesh_id, material_id),
+                    .add_entity(transform, mesh_id, material_id),
             );
         }
     }
