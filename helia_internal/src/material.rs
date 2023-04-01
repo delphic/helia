@@ -17,12 +17,13 @@ pub struct Material {
 // A note on per instance vs per material properties
 // In Fury you could mix and match per material and per instance properties for the same material
 // However a choice needs to be made ahead of time per material, and properties must be grouped
-// accordingly, you could in theory use the same shader with the same properties uniform be per material 
+// accordingly, you could in theory use the same shader with the same properties uniform be per material
 // or per entity as long as the properties you wish to mix and match were separated by binding group,
-// but due to how we currently define and execute the binding code, it is not viable.
+// but due to how we currently define and execute the binding code, you can not do this without
+// changing engine code.
 
 // If we wish to make it so this is possible we will want to be able to track binding group rebinds
-// and order our scene graph to minimise texture group rebinds (which are presumably more expense),
+// and order our scene graph to minimise texture group rebinds (which are still presumably more expense),
 // (if wgpu does internally prevents unnecessary rebinds we simply need to order the scene graph appropriately)
 // we should investigate this before we attempt to extend our existing scene structure which does track
 // the current bindings, although only at the mesh and material level (where as really it should be per bind group)

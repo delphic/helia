@@ -46,17 +46,18 @@ pub struct EntityUniforms {
 // for sprite shader
 
 impl EntityUniforms {
-    pub fn to_bytes(entity: &Entity) -> Vec::<u8> {
+    pub fn to_bytes(entity: &Entity) -> Vec<u8> {
+        let props = entity.properties;
         let data = EntityUniforms {
-            model: entity.transform.to_cols_array_2d(),
+            model: props.transform.to_cols_array_2d(),
             color: [
-                entity.color.r as f32,
-                entity.color.g as f32,
-                entity.color.b as f32,
-                entity.color.a as f32,
+                props.color.r as f32,
+                props.color.g as f32,
+                props.color.b as f32,
+                props.color.a as f32,
             ],
-            uv_offset: entity.uv_offset.to_array(),
-            uv_scale: entity.uv_scale.to_array(),
+            uv_offset: props.uv_offset.to_array(),
+            uv_scale: props.uv_scale.to_array(),
         };
         Vec::from(bytemuck::bytes_of(&data))
     }
@@ -126,7 +127,7 @@ pub struct Shader {
     pub entity_bind_group: EntityBindGroup,
     // ^^ these last two should be shared between shaders where possible
     pub requires_ordering: bool,
-    to_bytes_delegate: fn(entity: &Entity) -> Vec::<u8>,
+    to_bytes_delegate: fn(entity: &Entity) -> Vec<u8>,
 }
 
 impl Shader {
@@ -137,7 +138,7 @@ impl Shader {
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         alpha_blending: bool, // todo: enum, cause also pre-multiplied
         entity_uniforms_size: usize,
-        to_bytes_delegate: fn(entity: &Entity) -> Vec::<u8>,
+        to_bytes_delegate: fn(entity: &Entity) -> Vec<u8>,
     ) -> Self {
         let camera_bind_group = CameraBindGroup::new(device);
         // Much of what's in camera.rs w.r.t. CameraBindGroup is dependent on shader implementation

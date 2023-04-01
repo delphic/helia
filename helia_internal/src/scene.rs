@@ -33,29 +33,33 @@ impl Scene {
         self.prefabs.insert(Prefab::new(mesh, material))
     }
 
-    // todo: having the scene properties take each potential entity property as arguments is not scalable,
-    // need to either take an entity directly or some kind of properties object which locals and then these
-    // methods control the addition of mesh / material to the actual entity, I think the latter is probably 
-    // preferable as otherwise the prefab concept loses meaning.
+    // the fact we have the path of prefab instances and individual entities, is what
+    // requires the nesting of properties, ideally this would be unnecessary, and the
+    // scene graph would take care of the grouping, however until we have figured out
+    // how to support custom properties going to keep it this way.
 
     pub fn add_instance(
         &mut self,
         prefab_id: PrefabId,
-        transform: glam::Mat4,
+        properties: InstanceProperties,
     ) -> EntityId {
         let prefab = self.prefabs.get_mut(prefab_id).unwrap();
-        let entity_id = self.entities.insert(Entity::with_transform(prefab.mesh, prefab.material, transform));
+        let entity_id = self
+            .entities
+            .insert(Entity::new(prefab.mesh, prefab.material, properties));
         prefab.instances.push(entity_id);
         entity_id
     }
 
     pub fn add_entity(
         &mut self,
-        transform: glam::Mat4,
         mesh: MeshId,
         material: MaterialId,
+        properties: InstanceProperties,
     ) -> EntityId {
-        let entity_id = self.entities.insert(Entity::with_transform(mesh, material, transform));
+        let entity_id = self
+            .entities
+            .insert(Entity::new(mesh, material, properties));
         self.render_objects.push(entity_id);
         entity_id
     }
@@ -171,9 +175,11 @@ impl Scene {
             // This quite possibly works because transform_point results in -translation
             // and then we're sorting from front to back, rather than back to front
             let world_pos_a = self.entities[*a]
+                .properties
                 .transform
                 .transform_point3(glam::Vec3::ZERO);
             let world_pos_b = self.entities[*b]
+                .properties
                 .transform
                 .transform_point3(glam::Vec3::ZERO);
             let a_z = camera_transform.transform_point3(world_pos_a).z;

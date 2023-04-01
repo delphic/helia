@@ -1,7 +1,13 @@
 use glam::*;
 use helia::{
-    camera::Camera, camera_controller::*, entity::EntityId, material::Material, mesh::Mesh,
-    shader::Vertex, texture::Texture, *,
+    camera::Camera,
+    camera_controller::*,
+    entity::{EntityId, InstancePropertiesBuilder},
+    material::Material,
+    mesh::Mesh,
+    shader::Vertex,
+    texture::Texture,
+    *,
 };
 
 const CUBE_POSITIONS: &[Vec3] = &[
@@ -117,13 +123,8 @@ impl Game for GameState {
         let mesh = Mesh::new(vertices.as_slice(), CUBE_INDICES, &device);
         let mesh_id = state.resources.meshes.insert(mesh);
 
-        let transform = glam::Mat4::from_rotation_translation(Quat::IDENTITY, Vec3::ZERO);
-
-        self.cube = Some(
-            state
-                .scene
-                .add_entity(transform, mesh_id, material_id),
-        );
+        let props = InstancePropertiesBuilder::new().build();
+        self.cube = Some(state.scene.add_entity(mesh_id, material_id, props));
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
@@ -133,12 +134,13 @@ impl Game for GameState {
         }
         if let Some(cube) = self.cube {
             let entity = state.scene.get_entity_mut(cube);
-            let (scale, rotation, _) = entity.transform.to_scale_rotation_translation();
+            let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
             let translation = Vec3::new(self.time.sin(), 0.0, 0.0);
             let rotation =
                 Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * rotation;
-            entity.transform = Mat4::from_scale_rotation_translation(scale, rotation, translation);
+            entity.properties.transform =
+                Mat4::from_scale_rotation_translation(scale, rotation, translation);
             // well that's horrible to work with, going to want some kind of Transform struct
             // exposing position / rotation / scale and build the matrix
         }

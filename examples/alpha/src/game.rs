@@ -1,7 +1,13 @@
 use glam::*;
 use helia::{
-    camera::Camera, camera_controller::*, entity::EntityId, material::Material, mesh::Mesh,
-    shader::Vertex, texture::Texture, *,
+    camera::Camera,
+    camera_controller::*,
+    entity::{EntityId, InstancePropertiesBuilder},
+    material::Material,
+    mesh::Mesh,
+    shader::Vertex,
+    texture::Texture,
+    *,
 };
 
 const CUBE_POSITIONS: &[Vec3] = &[
@@ -103,7 +109,7 @@ impl Game for GameState {
         // Makin' Textures
         let texture_bytes = include_bytes!("../../../assets/lena.png");
         let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena").unwrap();
-        let material = Material::new(state.shaders.unlit_textured, texture, state);
+        let material = Material::new(state.shaders.sprite, texture, state);
         let material_id = state.resources.materials.insert(material);
 
         let mut vertices = Vec::new();
@@ -118,13 +124,14 @@ impl Game for GameState {
         let mesh_id = state.resources.meshes.insert(mesh);
 
         for i in 0..3 {
-            let transform =
-                glam::Mat4::from_rotation_translation(Quat::IDENTITY, -2.0 * (i as f32) * Vec3::Z);
-            self.cubes.push(
-                state
-                    .scene
-                    .add_entity(transform, mesh_id, material_id),
-            );
+            let props = InstancePropertiesBuilder::new()
+                .with_transform(glam::Mat4::from_rotation_translation(
+                    Quat::IDENTITY,
+                    -2.0 * (i as f32) * Vec3::Z,
+                ))
+                .build();
+            self.cubes
+                .push(state.scene.add_entity(mesh_id, material_id, props));
         }
     }
 
@@ -136,12 +143,13 @@ impl Game for GameState {
 
         for (i, cube) in self.cubes.iter().enumerate() {
             let entity = state.scene.get_entity_mut(*cube);
-            let (scale, rotation, _) = entity.transform.to_scale_rotation_translation();
+            let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
             let translation = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
             let rotation =
                 Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * rotation;
-            entity.transform = Mat4::from_scale_rotation_translation(scale, rotation, translation);
+            entity.properties.transform =
+                Mat4::from_scale_rotation_translation(scale, rotation, translation);
             // well that's horrible to work with, going to want some kind of Transform struct
             // exposing position / rotation / scale and build the matrix
         }

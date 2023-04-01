@@ -1,4 +1,4 @@
-use glam::{Vec2, Mat4};
+use glam::{Mat4, Quat, Vec2, Vec3};
 
 use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 
@@ -13,35 +13,124 @@ use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 // and if want to avoid properties that have no effect for certain entities
 slotmap::new_key_type! { pub struct EntityId; }
 
-pub struct Entity {
-    // render details
-    pub mesh: MeshId,
-    pub material: MaterialId,
-    pub uniform_offset: u64,
-    // local properties
+pub struct InstancePropertiesBuilder {
+    properties: InstanceProperties,
+}
+
+impl InstancePropertiesBuilder {
+    pub fn new() -> Self {
+        Self {
+            properties: InstanceProperties::default(),
+        }
+    }
+
+    pub fn build(&self) -> InstanceProperties {
+        self.properties
+    }
+
+    pub fn with_color(&mut self, color: wgpu::Color) -> &mut Self {
+        self.properties.color = color;
+        self
+    }
+
+    pub fn with_transform(&mut self, transform: Mat4) -> &mut Self {
+        self.properties.transform = transform;
+        self
+    }
+
+    pub fn with_translation(&mut self, translation: Vec3) -> &mut Self {
+        let (scale, rotation, _) = self.properties.transform.to_scale_rotation_translation();
+        self.properties.transform =
+            Mat4::from_scale_rotation_translation(scale, rotation, translation);
+        self
+    }
+
+    pub fn with_rotation(&mut self, rotation: Quat) -> &mut Self {
+        let (scale, _, translation) = self.properties.transform.to_scale_rotation_translation();
+        self.properties.transform =
+            Mat4::from_scale_rotation_translation(scale, rotation, translation);
+        self
+    }
+
+    pub fn with_scale(&mut self, scale: Vec3) -> &mut Self {
+        let (_, rotation, translation) = self.properties.transform.to_scale_rotation_translation();
+        self.properties.transform =
+            Mat4::from_scale_rotation_translation(scale, rotation, translation);
+        self
+    }
+
+    pub fn with_rotation_translation(&mut self, rotation: Quat, translation: Vec3) -> &mut Self {
+        let (scale, _, _) = self.properties.transform.to_scale_rotation_translation();
+        self.properties.transform =
+            Mat4::from_scale_rotation_translation(scale, rotation, translation);
+        self
+    }
+
+    pub fn with_scale_rotation_translation(
+        &mut self,
+        scale: Vec3,
+        rotation: Quat,
+        translation: Vec3,
+    ) -> &mut Self {
+        self.properties.transform =
+            Mat4::from_scale_rotation_translation(scale, rotation, translation);
+        self
+    }
+
+    pub fn with_uv_offset_scale(&mut self, uv_offset: Vec2, uv_scale: Vec2) -> &mut Self {
+        self.properties.uv_offset = uv_offset;
+        self.properties.uv_scale = uv_scale;
+        self
+    }
+
+    pub fn with_uv_offset(&mut self, uv_offset: Vec2) -> &mut Self {
+        self.properties.uv_offset = uv_offset;
+        self
+    }
+
+    pub fn with_uv_scale(&mut self, uv_scale: Vec2) -> &mut Self {
+        self.properties.uv_scale = uv_scale;
+        self
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct InstanceProperties {
     pub transform: Mat4,
     pub color: wgpu::Color,
     pub uv_offset: Vec2,
     pub uv_scale: Vec2,
 }
 
+impl Default for InstanceProperties {
+    fn default() -> Self {
+        Self {
+            transform: Mat4::from_translation(Vec3::ZERO),
+            color: wgpu::Color::WHITE,
+            uv_offset: Vec2::ZERO,
+            uv_scale: Vec2::ONE,
+        }
+    }
+}
+
+pub struct Entity {
+    // render details
+    pub mesh: MeshId,
+    pub material: MaterialId,
+    pub uniform_offset: u64,
+    // instance propertires
+    pub properties: InstanceProperties,
+}
+
 impl Entity {
-    pub fn new(mesh: MeshId, material: MaterialId, transform: Mat4, color: wgpu::Color, uv_offset: Vec2, uv_scale: Vec2) -> Self {
+    pub fn new(mesh: MeshId, material: MaterialId, properties: InstanceProperties) -> Self {
         Self {
             mesh,
             material,
             uniform_offset: 0,
-            transform,
-            color,
-            uv_offset,
-            uv_scale
+            properties,
         }
     }
-
-    pub fn with_transform(mesh: MeshId, material: MaterialId, transform: Mat4) -> Self {
-        Self::new(mesh, material, transform, wgpu::Color::WHITE, Vec2::ZERO, Vec2::ONE)
-    }
-    // todo: builder pattern might be nie ^^
 }
 
 pub struct EntityBindGroup {

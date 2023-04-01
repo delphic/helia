@@ -1,7 +1,7 @@
 use glam::*;
 use helia::{
-    camera::Camera, camera_controller::*, material::Material, mesh::Mesh, shader::Vertex,
-    texture::Texture, *,
+    camera::Camera, camera_controller::*, entity::InstancePropertiesBuilder, material::Material,
+    mesh::Mesh, shader::Vertex, texture::Texture, *,
 };
 
 const VERTICES: &[Vertex] = &[
@@ -91,7 +91,9 @@ impl Game for GameState {
                         )
                     };
 
-                    glam::Mat4::from_rotation_translation(rotation, position)
+                    InstancePropertiesBuilder::new()
+                        .with_rotation_translation(rotation, position)
+                        .build()
                 })
             })
             .collect::<Vec<_>>();
@@ -102,13 +104,11 @@ impl Game for GameState {
         let lena_prefab_id = state.scene.create_prefab(mesh_id, black_material_id);
         let lena_alt_prefab_id = state.scene.create_prefab(mesh_id, rink_material_id);
 
-        for (i, transform) in instances.iter().enumerate() {
+        for (i, props) in instances.iter().enumerate() {
             if i % 2 == 0 {
-                state.scene.add_instance(lena_prefab_id, *transform);
+                state.scene.add_instance(lena_prefab_id, *props);
             } else {
-                state
-                    .scene
-                    .add_instance(lena_alt_prefab_id, *transform);
+                state.scene.add_instance(lena_alt_prefab_id, *props);
             }
         }
     }
