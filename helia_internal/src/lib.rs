@@ -43,7 +43,6 @@ impl Resources {
 
 pub struct BuildInShaders {
     pub unlit_textured: ShaderId,
-    pub sprite: ShaderId,
 }
 
 pub struct State {
@@ -128,17 +127,6 @@ impl State {
         );
         let unlit_textured = resources.shaders.insert(shader);
 
-        let sprite_shader = Shader::new(
-            &device,
-            wgpu::include_wgsl!("shaders/unlit_textured.wgsl"),
-            config.format,
-            &texture_bind_group_layout,
-            true,
-            std::mem::size_of::<EntityUniforms>(),
-            EntityUniforms::to_bytes,
-        ); // todo: update to new wgsl with more locals aka entity uniform properties
-        let sprite = resources.shaders.insert(sprite_shader);
-
         let scene = Scene::new();
 
         Self {
@@ -154,7 +142,6 @@ impl State {
             resources,
             shaders: BuildInShaders {
                 unlit_textured,
-                sprite,
             },
         }
     }
