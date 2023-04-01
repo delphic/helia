@@ -64,12 +64,11 @@ impl Game for GameState {
             state.scene.add_entity(
                 mesh_id,
                 lena_material_id,
-                InstancePropertiesBuilder::new()
+                InstanceProperties::builder()
                     .with_uv_offset_scale(offset, scale)
                     .build(),
             ),
         );
-        // todo: change to InstanceProperties::builder() rather than importing the type
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {

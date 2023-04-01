@@ -1,6 +1,6 @@
 use glam::*;
 use helia::{
-    camera::Camera, camera_controller::*, entity::InstancePropertiesBuilder, material::Material,
+    camera::Camera, camera_controller::*, entity::*, material::Material,
     mesh::Mesh, shader::Vertex, texture::Texture, *,
 };
 
@@ -93,7 +93,7 @@ impl Game for GameState {
                         )
                     };
 
-                    InstancePropertiesBuilder::new()
+                    InstanceProperties::builder()
                         .with_rotation_translation(rotation, position)
                         .build()
                 })

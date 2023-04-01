@@ -113,6 +113,12 @@ impl Default for InstanceProperties {
     }
 }
 
+impl InstanceProperties {
+    pub fn builder() -> InstancePropertiesBuilder {
+        InstancePropertiesBuilder::new()
+    }
+}
+
 pub struct Entity {
     // render details
     pub mesh: MeshId,

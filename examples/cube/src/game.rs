@@ -2,7 +2,7 @@ use glam::*;
 use helia::{
     camera::Camera,
     camera_controller::*,
-    entity::{EntityId, InstancePropertiesBuilder},
+    entity::*,
     material::Material,
     mesh::Mesh,
     texture::Texture,
@@ -116,7 +116,7 @@ impl Game for GameState {
         let mesh = Mesh::from_arrays(CUBE_POSITIONS, CUBE_UVS, CUBE_INDICES, &device);
         let mesh_id = state.resources.meshes.insert(mesh);
 
-        let props = InstancePropertiesBuilder::new().build();
+        let props = InstanceProperties::default();
         self.cube = Some(state.scene.add_entity(mesh_id, material_id, props));
     }
 

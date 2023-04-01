@@ -2,7 +2,7 @@ use glam::*;
 use helia::{
     camera::Camera,
     camera_controller::*,
-    entity::{EntityId, InstancePropertiesBuilder},
+    entity::{EntityId, InstanceProperties},
     material::Material,
     mesh::Mesh,
     shader::Vertex,
@@ -126,7 +126,7 @@ impl Game for GameState {
         let mesh_id = state.resources.meshes.insert(mesh);
 
         for i in 0..3 {
-            let props = InstancePropertiesBuilder::new()
+            let props = InstanceProperties::builder()
                 .with_transform(glam::Mat4::from_rotation_translation(
                     Quat::IDENTITY,
                     -2.0 * (i as f32) * Vec3::Z,
