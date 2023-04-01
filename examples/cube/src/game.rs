@@ -5,7 +5,6 @@ use helia::{
     entity::{EntityId, InstancePropertiesBuilder},
     material::Material,
     mesh::Mesh,
-    shader::Vertex,
     texture::Texture,
     *,
 };
@@ -96,6 +95,8 @@ impl Game for GameState {
             fov: 60.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 1000.0,
+            projection: camera::Projection::Perspective,
+            size: 1.0,
             clear_color: wgpu::Color {
                 r: 0.1,
                 g: 0.2,
@@ -112,15 +113,7 @@ impl Game for GameState {
         let material = Material::new(state.shaders.unlit_textured, texture, state);
         let material_id = state.resources.materials.insert(material);
 
-        let mut vertices = Vec::new();
-        for i in 0..CUBE_POSITIONS.len() {
-            vertices.push(Vertex {
-                position: CUBE_POSITIONS[i].to_array(),
-                tex_coords: CUBE_UVS[i].to_array(),
-            });
-        }
-
-        let mesh = Mesh::new(vertices.as_slice(), CUBE_INDICES, &device);
+        let mesh = Mesh::from_arrays(CUBE_POSITIONS, CUBE_UVS, CUBE_INDICES, &device);
         let mesh_id = state.resources.meshes.insert(mesh);
 
         let props = InstancePropertiesBuilder::new().build();

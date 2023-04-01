@@ -59,6 +59,8 @@ impl Game for GameState {
                 b: 0.3,
                 a: 1.0,
             },
+            projection: camera::Projection::Perspective,
+            size: 1.0,
         };
 
         state.scene.camera = camera;

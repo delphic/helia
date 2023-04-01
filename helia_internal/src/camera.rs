@@ -12,6 +12,11 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
 // without this models centered on 0,0,0 halfway inside the clipping
 // area arguably this is fine.
 
+pub enum Projection {
+    Orthographic,
+    Perspective,
+}
+
 pub struct Camera {
     pub eye: Vec3,
     pub target: Vec3,
@@ -20,14 +25,29 @@ pub struct Camera {
     pub fov: f32,
     pub near: f32,
     pub far: f32,
+    pub size: f32,
     pub clear_color: wgpu::Color,
+    pub projection: Projection,
 }
 // todo: move from eye / target to position / rotation
 
 impl Camera {
     pub fn build_view_projection_matrix(&self) -> Mat4 {
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
-        let proj = Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far);
+        let proj = match self.projection {
+            Projection::Perspective => {
+                Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far)
+            }
+            Projection::Orthographic => Mat4::orthographic_rh(
+                -0.5 * self.size * self.aspect_ratio,
+                0.5 * self.size * self.aspect_ratio,
+                -0.5 * self.size,
+                0.5 * self.size,
+                self.near,
+                self.far,
+            ),
+            // todo: provide functions for orthographic and perspective camera create methods
+        };
         OPENGL_TO_WGPU_MATRIX * proj * view
     }
 }
@@ -42,7 +62,9 @@ impl Default for Camera {
             fov: 60.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 1000.0,
+            size: 1.0,
             clear_color: wgpu::Color::BLACK,
+            projection: Projection::Perspective,
         }
     }
 }

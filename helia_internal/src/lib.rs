@@ -152,7 +152,10 @@ impl State {
             scene,
             texture_bind_group_layout,
             resources,
-            shaders: BuildInShaders { unlit_textured, sprite },
+            shaders: BuildInShaders {
+                unlit_textured,
+                sprite,
+            },
         }
     }
 
@@ -214,6 +217,8 @@ impl State {
 pub trait Game {
     fn init(&mut self, state: &mut State);
     fn update(&mut self, state: &mut State, elapsed: f32);
+    // todo: remove input as game method instead query tracked input state in update,
+    // expose individual window events as needed, c.f. resize
     fn input(&mut self, state: &mut State, event: &WindowEvent) -> bool;
     fn resize(&mut self, state: &mut State);
 }
