@@ -4,12 +4,6 @@ version = "0.0.1"
 edition = "2021"
 description = "Binary and WASM exportable helia input example"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[lib]
-crate-type = ["cdylib", "rlib"]
-# rlib for desktop env, cdylib for wasm
-
 [dependencies]
 helia = { path = "../../" }
 pollster = "0.3"
