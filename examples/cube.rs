@@ -79,7 +79,6 @@ const CUBE_INDICES: &[u16] = &[
 pub struct GameState {
     orbit_camera: Option<OrbitCamera>,
     cube: Option<EntityId>,
-    time: f32,
 }
 
 impl Game for GameState {
@@ -121,14 +120,13 @@ impl Game for GameState {
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
-        self.time += elapsed; // todo: should be getting this from helia
         if let Some(camera_controller) = &self.orbit_camera {
             camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
         if let Some(cube) = self.cube {
             let entity = state.scene.get_entity_mut(cube);
             let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
-            let translation = Vec3::new(self.time.sin(), 0.0, 0.0);
+            let translation = Vec3::new(state.time.total_elapsed.sin(), 0.0, 0.0);
             let rotation =
                 Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * rotation;
@@ -148,7 +146,6 @@ pub async fn run() {
     let game_state = GameState {
         orbit_camera: Some(OrbitCamera::new(1.5)),
         cube: None,
-        time: 0.0,
     };
     helia::run(Box::new(game_state)).await;
 }

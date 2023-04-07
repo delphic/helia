@@ -1,5 +1,4 @@
 use glam::*;
-use instant::Instant;
 use slotmap::SlotMap;
 use winit::{
     event::*,
@@ -19,6 +18,7 @@ pub mod entity;
 pub mod input;
 pub mod prefab;
 pub mod scene;
+pub mod time;
 
 pub mod orbit_camera;
 
@@ -50,7 +50,7 @@ pub struct BuildInShaders {
 }
 
 pub struct State {
-    last_update_time: Instant,
+    pub time: time::Time,
     surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -146,7 +146,7 @@ impl State {
         let scene = Scene::new();
 
         Self {
-            last_update_time: Instant::now(),
+            time: time::Time::default(),
             surface,
             device,
             queue,
@@ -184,7 +184,7 @@ impl State {
         false
     }
 
-    fn update(&mut self, _elapsed: f32) {
+    fn update(&mut self) {
         self.scene
             .update(&mut self.resources, &self.queue, &self.device);
     }
@@ -296,10 +296,9 @@ pub async fn run(mut game: Box<dyn Game>) {
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            let elapsed = state.last_update_time.elapsed().as_secs_f32();
-            state.last_update_time = Instant::now();
+            let elapsed = state.time.update();
             game.update(&mut state, elapsed);
-            state.update(elapsed);
+            state.update();
             state.input.frame_finished();
 
             match state.render() {
