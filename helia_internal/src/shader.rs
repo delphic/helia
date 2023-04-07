@@ -46,7 +46,7 @@ pub struct EntityUniforms {
 // for sprite shader
 
 impl EntityUniforms {
-    pub fn to_bytes(entity: &Entity) -> Vec<u8> {
+    pub fn write_bytes(entity: &Entity, bytes: &mut Vec<u8>) {
         let props = entity.properties;
         let data = EntityUniforms {
             model: props.transform.to_cols_array_2d(),
@@ -59,7 +59,8 @@ impl EntityUniforms {
             uv_offset: props.uv_offset.to_array(),
             uv_scale: props.uv_scale.to_array(),
         };
-        Vec::from(bytemuck::bytes_of(&data))
+        bytes.clear();
+        bytes.extend_from_slice(bytemuck::bytes_of(&data));
     }
 }
 
@@ -127,7 +128,8 @@ pub struct Shader {
     pub entity_bind_group: EntityBindGroup,
     // ^^ these last two should be shared between shaders where possible
     pub requires_ordering: bool,
-    to_bytes_delegate: fn(entity: &Entity) -> Vec<u8>,
+    bytes_delegate: fn(entity: &Entity, bytes: &mut Vec<u8>),
+    bytes_buffer: Vec<u8>
 }
 
 impl Shader {
@@ -138,7 +140,7 @@ impl Shader {
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         alpha_blending: bool, // todo: enum, cause also pre-multiplied
         entity_uniforms_size: usize,
-        to_bytes_delegate: fn(entity: &Entity) -> Vec<u8>,
+        to_bytes_delegate: fn(entity: &Entity, bytes: &mut Vec<u8>),
     ) -> Self {
         let camera_bind_group = CameraBindGroup::new(device);
         // Much of what's in camera.rs w.r.t. CameraBindGroup is dependent on shader implementation
@@ -222,22 +224,24 @@ impl Shader {
             camera_bind_group,
             entity_bind_group,
             requires_ordering: alpha_blending,
-            to_bytes_delegate,
+            bytes_delegate: to_bytes_delegate,
+            bytes_buffer: Vec::new(),
         }
     }
 
-    pub fn write_entity_uniforms(&self, entity: &mut Entity, offset: u64, queue: &wgpu::Queue) {
+    pub fn write_entity_uniforms(&mut self, entity: &mut Entity, offset: u64, queue: &wgpu::Queue) {
         // previously the writing to the queue as done as part of the delegate,
-        // which avoided the creation of a new Vec just for returning uniform data per entity
-        // however this separation has 'cleaner' separation of responsibility. We should probably
+        // which avoided the use of a Vec just for returning uniform data per entity
+        // however this formulation has 'cleaner' separation of responsibility. We should probably
         // profile this to see if there is significant performance impact and consider reverting
-        // to the delegate doing the queue write to avoid the unnecessary creation of a 'heap type'
+        // to the delegate doing the queue write to avoid the unnecessary shuffling with Vec.
         // The use of a delegates is to avoid requiring type information when storing the shader.
         entity.uniform_offset = offset * self.entity_bind_group.alignment;
+        (self.bytes_delegate)(entity, &mut self.bytes_buffer);
         queue.write_buffer(
             &self.entity_bind_group.buffer,
             entity.uniform_offset as wgpu::BufferAddress,
-            (self.to_bytes_delegate)(entity).as_slice(),
+            self.bytes_buffer.as_slice(),
         );
     }
 }

@@ -124,7 +124,7 @@ impl State {
             &texture_bind_group_layout,
             false,
             std::mem::size_of::<EntityUniforms>(),
-            EntityUniforms::to_bytes,
+            EntityUniforms::write_bytes,
         );
         let unlit_textured = resources.shaders.insert(shader);
 
@@ -135,7 +135,7 @@ impl State {
             &texture_bind_group_layout,
             true,
             std::mem::size_of::<EntityUniforms>(),
-            EntityUniforms::to_bytes,
+            EntityUniforms::write_bytes,
         );
         let sprite = resources.shaders.insert(sprite_shader);
 
