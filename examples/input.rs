@@ -1,6 +1,5 @@
 use glam::*;
 use helia::{camera::Camera, *};
-use winit::event::WindowEvent;
 
 pub struct GameState {}
 
@@ -27,21 +26,14 @@ impl Game for GameState {
         state.scene.camera = camera;
     }
 
-    fn update(&mut self, _state: &mut State, _elapsed: f32) {}
-
-    fn input(&mut self, state: &mut State, event: &winit::event::WindowEvent) -> bool {
-        match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                state.scene.camera.clear_color = Color {
-                    r: position.x / state.size.width as f64,
-                    g: 0.2,
-                    b: position.y / state.size.height as f64,
-                    a: 1.0,
-                };
-                true
-            }
-            _ => false,
-        }
+    fn update(&mut self, state: &mut State, _elapsed: f32) {
+        let position = state.input.mouse_position;
+        state.scene.camera.clear_color = Color {
+            r: position.x / state.size.width as f64,
+            g: 0.2,
+            b: position.y / state.size.height as f64,
+            a: 1.0,
+        };
     }
 
     fn resize(&mut self, state: &mut State) {

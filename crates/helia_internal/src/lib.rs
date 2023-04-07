@@ -16,6 +16,7 @@ use shader::*;
 pub type Color = wgpu::Color;
 
 pub mod entity;
+pub mod input;
 pub mod prefab;
 pub mod scene;
 
@@ -56,6 +57,7 @@ pub struct State {
     config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     depth_texture: texture::Texture,
+    pub input: input::InputState,
     pub scene: Scene,
     pub resources: Resources,
     pub shaders: BuildInShaders,
@@ -154,6 +156,7 @@ impl State {
             scene,
             texture_bind_group_layout,
             resources,
+            input: input::InputState::default(),
             shaders: BuildInShaders {
                 unlit_textured,
                 sprite,
@@ -219,9 +222,6 @@ impl State {
 pub trait Game {
     fn init(&mut self, state: &mut State);
     fn update(&mut self, state: &mut State, elapsed: f32);
-    // todo: remove input as game method instead query tracked input state in update,
-    // expose individual window events as needed, c.f. resize
-    fn input(&mut self, state: &mut State, event: &WindowEvent) -> bool;
     fn resize(&mut self, state: &mut State);
 }
 
@@ -269,31 +269,30 @@ pub async fn run(mut game: Box<dyn Game>) {
             ref event,
             window_id,
         } if window_id == window.id() => {
-            if !game.input(&mut state, event) {
-                match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    WindowEvent::Resized(physical_size) => {
-                        if state.resize(*physical_size) {
-                            game.resize(&mut state);
-                        }
+            state.input.process_events(event);
+            match event {
+                WindowEvent::CloseRequested
+                | WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        },
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+                WindowEvent::Resized(physical_size) => {
+                    if state.resize(*physical_size) {
+                        game.resize(&mut state);
                     }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        // new_inner_size is &&mut so we have to dereference it twice
-                        if state.resize(**new_inner_size) {
-                            game.resize(&mut state);
-                        }
-                    }
-                    _ => {}
                 }
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    // new_inner_size is &&mut so we have to dereference it twice
+                    if state.resize(**new_inner_size) {
+                        game.resize(&mut state);
+                    }
+                }
+                _ => {}
             }
         }
         Event::RedrawRequested(window_id) if window_id == window.id() => {
@@ -301,6 +300,7 @@ pub async fn run(mut game: Box<dyn Game>) {
             state.last_update_time = Instant::now();
             game.update(&mut state, elapsed);
             state.update(elapsed);
+            state.input.frame_finished();
 
             match state.render() {
                 Ok(_) => {}

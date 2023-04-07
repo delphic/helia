@@ -567,7 +567,6 @@ dependencies = [
  "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "winit",
 ]
 
 [[package]]

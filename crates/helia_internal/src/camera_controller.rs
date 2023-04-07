@@ -1,74 +1,34 @@
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
-
 use crate::camera::*;
+use crate::input::*;
+
 
 pub struct CameraController {
     speed: f32,
-    is_forward_pressed: bool,
-    is_backward_pressed: bool,
-    is_left_pressed: bool,
-    is_right_pressed: bool,
 }
-// TODO: Move most of that ^^ to input map
 
 impl CameraController {
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
-            is_forward_pressed: false,
-            is_backward_pressed: false,
-            is_left_pressed: false,
-            is_right_pressed: false,
-        }
-    }
-
-    pub fn process_events(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
-            }
-            _ => false,
         }
     }
 
     // Orbit camera
-    pub fn update_camera(&self, camera: &mut Camera, elapsed: f32) {
+    pub fn update_camera(&self, camera: &mut Camera, input: &InputState, elapsed: f32) {
+        let is_forward_pressed = input.key_pressed(VirtualKeyCode::W) || input.key_pressed(VirtualKeyCode::Up);
+        let is_left_pressed = input.key_pressed(VirtualKeyCode::A) || input.key_pressed(VirtualKeyCode::Left);
+        let is_backward_pressed = input.key_pressed(VirtualKeyCode::S) || input.key_pressed(VirtualKeyCode::Down);
+        let is_right_pressed = input.key_pressed(VirtualKeyCode::D) || input.key_pressed(VirtualKeyCode::Right);
+
         let to_target = camera.target - camera.eye;
         let forward = to_target.normalize();
         let distance_to_target = to_target.length();
         let delta = self.speed * elapsed;
 
-        if self.is_forward_pressed && distance_to_target > delta {
+        if is_forward_pressed && distance_to_target > delta {
             camera.eye += forward * delta;
         }
-        if self.is_backward_pressed {
+        if is_backward_pressed {
             camera.eye -= forward * delta;
         }
 
@@ -77,10 +37,10 @@ impl CameraController {
         let to_target = camera.target - camera.eye;
         let distance_to_target = to_target.length();
 
-        if self.is_right_pressed {
+        if is_right_pressed {
             camera.eye = camera.target - (forward - right * delta).normalize() * distance_to_target;
         }
-        if self.is_left_pressed {
+        if is_left_pressed {
             camera.eye = camera.target - (forward + right * delta).normalize() * distance_to_target;
         }
     }

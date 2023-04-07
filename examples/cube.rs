@@ -123,7 +123,7 @@ impl Game for GameState {
     fn update(&mut self, state: &mut State, elapsed: f32) {
         self.time += elapsed; // todo: should be getting this from helia
         if let Some(camera_controller) = &self.camera_controller {
-            camera_controller.update_camera(&mut state.scene.camera, elapsed);
+            camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
         if let Some(cube) = self.cube {
             let entity = state.scene.get_entity_mut(cube);
@@ -137,13 +137,6 @@ impl Game for GameState {
             // well that's horrible to work with, going to want some kind of Transform struct
             // exposing position / rotation / scale and build the matrix
         }
-    }
-
-    fn input(&mut self, _state: &mut State, event: &winit::event::WindowEvent) -> bool {
-        if let Some(camera_controller) = &mut self.camera_controller {
-            return camera_controller.process_events(event);
-        }
-        false
     }
 
     fn resize(&mut self, state: &mut State) {

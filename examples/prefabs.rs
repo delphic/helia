@@ -117,15 +117,8 @@ impl Game for GameState {
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
         if let Some(camera_controller) = &self.camera_controller {
-            camera_controller.update_camera(&mut state.scene.camera, elapsed);
+            camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
-    }
-
-    fn input(&mut self, _state: &mut State, event: &winit::event::WindowEvent) -> bool {
-        if let Some(camera_controller) = &mut self.camera_controller {
-            return camera_controller.process_events(event);
-        }
-        false
     }
 
     fn resize(&mut self, state: &mut State) {
