@@ -1,30 +1,25 @@
 # Helia
 
-A WIP Rust Game Engine!
+A Radiant Game Engine.
+
+Focusing on simplicity, flexbility and programmer productivity.
 
 ## Build
 
-Standalone: `cargo build` / `cargo run`
+Standalone: `cargo build --example name` / `cargo run --example name`
 
 ### Web
 Ensure wasm bindgen cli is installed and matches your cargo lock file.
 
 `cargo install -f wasm-bindgen-cli`
 
-Install a simple http-server of your choice, e.g.
-`npm install -g http-server`
+Create `build/` folder and copy over `templates/index.html` and adjust its js module import to match example name.
 
-Update index.html in example crate so JS file import matches crate name.
+`cargo build --example <name> --target wasm32-unknown-unknown --release`
 
-Then per build
+`wasm-bindgen --target web ./target/wasm32-unknown-unknown/release/examples/<name>.wasm --out-dir ./build/pkg --no-typescript`
 
-`cd ./examples/<example>`
-
-`cargo build --target wasm32-unknown-unknown --release`
-
-`wasm-bindgen --target web ../../target/wasm32-unknown-unknown/release/<example-crate-name>.wasm --out-dir ./pkg`
-
-`http-server`
+`http-server ./build`
 
 ## System Dependencies on Linux
 

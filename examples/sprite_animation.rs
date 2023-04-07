@@ -1,6 +1,40 @@
-use crate::aseprite::*;
 use glam::*;
 use helia::{camera::Camera, entity::*, mesh::Mesh, *};
+
+mod aseprite {
+    #[derive(Debug, serde::Deserialize)]
+    pub struct AsepriteAnimation {
+        pub meta: Meta,
+        pub frames: Vec<AnimationFrameData>,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    pub struct Meta {
+        pub size: Size,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    pub struct Size {
+        pub w: u64,
+        pub h: u64,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    pub struct AnimationFrameData {
+        pub frame: Frame,
+        pub duration: u64,
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    pub struct Frame {
+        pub x: u64,
+        pub y: u64,
+        pub w: u64,
+        pub h: u64,
+    }
+}
+
+use self::aseprite::*;
 
 const QUAD_POSITIONS: &[Vec3] = &[
     Vec3::new(-0.5, -0.5, 0.0),
@@ -117,4 +151,16 @@ pub async fn run() {
         .unwrap(),
     };
     helia::run(Box::new(game_state)).await;
+}
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+pub async fn start() {
+    run().await;
+}
+
+fn main() {
+    pollster::block_on(run());
 }

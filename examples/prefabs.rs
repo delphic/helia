@@ -66,11 +66,11 @@ impl Game for GameState {
         state.scene.camera = camera;
 
         // Makin' Textures
-        let texture_bytes = include_bytes!("../../../assets/lena_on_black.png");
+        let texture_bytes = include_bytes!("../assets/lena_on_black.png");
         let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena black").unwrap();
         let black_material = Material::new(state.shaders.unlit_textured, texture, state);
 
-        let texture_bytes = include_bytes!("../../../assets/lena_on_rink.png");
+        let texture_bytes = include_bytes!("../assets/lena_on_rink.png");
         let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena rink").unwrap();
         let rink_material = Material::new(state.shaders.unlit_textured, texture, state);
 
@@ -133,9 +133,17 @@ impl Game for GameState {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
     let game_state = GameState {
         camera_controller: Some(CameraController::new(1.5)),
     };
     helia::run(Box::new(game_state)).await;
+}
+
+fn main() {
+    pollster::block_on(run());
 }

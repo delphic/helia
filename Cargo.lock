@@ -559,71 +559,8 @@ dependencies = [
 name = "helia"
 version = "0.0.0"
 dependencies = [
+ "glam",
  "helia_internal",
-]
-
-[[package]]
-name = "helia-alpha-example"
-version = "0.0.1"
-dependencies = [
- "glam",
- "helia",
- "log",
- "pollster",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "helia-cube-example"
-version = "0.0.1"
-dependencies = [
- "glam",
- "helia",
- "log",
- "pollster",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "helia-input-example"
-version = "0.0.1"
-dependencies = [
- "glam",
- "helia",
- "log",
- "pollster",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "helia-prefabs-example"
-version = "0.0.1"
-dependencies = [
- "glam",
- "helia",
- "log",
- "pollster",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "helia-sprite-animation-example"
-version = "0.0.1"
-dependencies = [
- "glam",
- "helia",
  "log",
  "pollster",
  "serde",

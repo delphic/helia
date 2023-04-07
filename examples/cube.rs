@@ -2,7 +2,7 @@ use glam::*;
 use helia::{
     camera::Camera,
     camera_controller::*,
-    entity::{EntityId, InstanceProperties},
+    entity::*,
     material::Material,
     mesh::Mesh,
     texture::Texture,
@@ -78,7 +78,7 @@ const CUBE_INDICES: &[u16] = &[
 
 pub struct GameState {
     camera_controller: Option<CameraController>,
-    cubes: Vec<EntityId>,
+    cube: Option<EntityId>,
     time: f32,
 }
 
@@ -108,24 +108,16 @@ impl Game for GameState {
         state.scene.camera = camera;
 
         // Makin' Textures
-        let texture_bytes = include_bytes!("../../../assets/lena.png");
-        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena").unwrap();
-        let material = Material::new(state.shaders.sprite, texture, state);
+        let texture_bytes = include_bytes!("../assets/crate.png");
+        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "crate").unwrap();
+        let material = Material::new(state.shaders.unlit_textured, texture, state);
         let material_id = state.resources.materials.insert(material);
 
         let mesh = Mesh::from_arrays(CUBE_POSITIONS, CUBE_UVS, CUBE_INDICES, &device);
         let mesh_id = state.resources.meshes.insert(mesh);
 
-        for i in 0..3 {
-            let props = InstanceProperties::builder()
-                .with_transform(glam::Mat4::from_rotation_translation(
-                    Quat::IDENTITY,
-                    -2.0 * (i as f32) * Vec3::Z,
-                ))
-                .build();
-            self.cubes
-                .push(state.scene.add_entity(mesh_id, material_id, props));
-        }
+        let props = InstanceProperties::default();
+        self.cube = Some(state.scene.add_entity(mesh_id, material_id, props));
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
@@ -133,11 +125,10 @@ impl Game for GameState {
         if let Some(camera_controller) = &self.camera_controller {
             camera_controller.update_camera(&mut state.scene.camera, elapsed);
         }
-
-        for (i, cube) in self.cubes.iter().enumerate() {
-            let entity = state.scene.get_entity_mut(*cube);
+        if let Some(cube) = self.cube {
+            let entity = state.scene.get_entity_mut(cube);
             let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
-            let translation = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
+            let translation = Vec3::new(self.time.sin(), 0.0, 0.0);
             let rotation =
                 Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * rotation;
@@ -160,14 +151,20 @@ impl Game for GameState {
     }
 }
 
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
     let game_state = GameState {
         camera_controller: Some(CameraController::new(1.5)),
-        cubes: Vec::new(),
+        cube: None,
         time: 0.0,
     };
     helia::run(Box::new(game_state)).await;
 }
 
-// Q: how does macroquad manage to make main async?
-// A: TL:DR "macros"
+fn main() {
+    pollster::block_on(run());
+}

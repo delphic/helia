@@ -49,7 +49,15 @@ impl Game for GameState {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
     let game_state = GameState {};
     helia::run(Box::new(game_state)).await;
+}
+
+fn main() {
+    pollster::block_on(run());
 }
