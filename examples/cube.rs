@@ -97,7 +97,7 @@ impl Game for GameState {
             far: 1000.0,
             projection: camera::Projection::Perspective,
             size: 1.0,
-            clear_color: wgpu::Color {
+            clear_color: Color {
                 r: 0.1,
                 g: 0.2,
                 b: 0.3,

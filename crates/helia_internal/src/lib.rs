@@ -13,6 +13,8 @@ use mesh::*;
 use scene::*;
 use shader::*;
 
+pub type Color = wgpu::Color;
+
 pub mod entity;
 pub mod prefab;
 pub mod scene;

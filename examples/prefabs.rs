@@ -53,7 +53,7 @@ impl Game for GameState {
             fov: 60.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 1000.0,
-            clear_color: wgpu::Color {
+            clear_color: Color {
                 r: 0.1,
                 g: 0.2,
                 b: 0.3,

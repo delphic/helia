@@ -16,7 +16,7 @@ impl Game for GameState {
             far: 1000.0,
             projection: camera::Projection::Perspective,
             size: 1.0,
-            clear_color: wgpu::Color {
+            clear_color: Color {
                 r: 0.1,
                 g: 0.2,
                 b: 0.3,
@@ -32,7 +32,7 @@ impl Game for GameState {
     fn input(&mut self, state: &mut State, event: &winit::event::WindowEvent) -> bool {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                state.scene.camera.clear_color = wgpu::Color {
+                state.scene.camera.clear_color = Color {
                     r: position.x / state.size.width as f64,
                     g: 0.2,
                     b: position.y / state.size.height as f64,
