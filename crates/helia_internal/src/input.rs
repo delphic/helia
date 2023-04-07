@@ -1,7 +1,7 @@
 use std::{cmp::Eq, hash::Hash, collections::{HashSet, HashMap}};
 use glam::Vec2;
 use instant::Instant;
-use winit::{event::{WindowEvent, ElementState, KeyboardInput}, dpi::PhysicalPosition};
+use winit::{event::{WindowEvent, ElementState, KeyboardInput, MouseScrollDelta}, dpi::PhysicalPosition};
 
 pub type VirtualKeyCode = winit::event::VirtualKeyCode;
 pub type MouseButton = winit::event::MouseButton;
@@ -9,6 +9,8 @@ pub type MouseButton = winit::event::MouseButton;
 pub struct InputState {
     pub mouse_position: PhysicalPosition<f64>,
     pub mouse_delta: Vec2,
+    pub mouse_scroll_delta: Vec2,
+    pub pixel_scroll_ratio: f32,
     last_mouse_position: PhysicalPosition<f64>,
     key_map: InputMap<VirtualKeyCode>,
     mouse_button_map: InputMap<MouseButton>,
@@ -80,6 +82,12 @@ impl InputState {
                     ElementState::Released => self.mouse_button_map.released(*button),
                 }
             },
+            WindowEvent::MouseWheel { delta, .. } => {
+                match *delta {
+                    MouseScrollDelta::LineDelta(x, y) => self.mouse_scroll_delta += Vec2::new(x, y),
+                    MouseScrollDelta::PixelDelta(position) => self.mouse_scroll_delta += self.pixel_scroll_ratio * Vec2::new(position.x as f32, position.y as f32),
+                }
+            }
             WindowEvent::CursorMoved { position, .. } => { 
                 self.mouse_delta = Vec2::new((position.x - self.last_mouse_position.x) as f32, (position.y - self.last_mouse_position.y) as f32);
                 self.mouse_position = *position;
@@ -106,6 +114,7 @@ impl InputState {
         self.key_map.frame_finished();
         self.mouse_button_map.frame_finished();
         self.mouse_delta = Vec2::ZERO;
+        self.mouse_scroll_delta = Vec2::ZERO;
         self.last_mouse_position = self.mouse_position;
     }
 
@@ -168,6 +177,8 @@ impl Default for InputState {
             mouse_delta: Vec2::ZERO,
             key_map: InputMap::new(),
             mouse_button_map: InputMap::new(),
+            pixel_scroll_ratio: 1.0,
+            mouse_scroll_delta: Vec2::ZERO,
         }
     }
 } 
