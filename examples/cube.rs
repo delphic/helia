@@ -151,11 +151,6 @@ impl Game for GameState {
     }
 }
 
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
-
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
     let game_state = GameState {
         camera_controller: Some(CameraController::new(1.5)),
@@ -163,6 +158,14 @@ pub async fn run() {
         time: 0.0,
     };
     helia::run(Box::new(game_state)).await;
+}
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+pub async fn start() {
+    run().await;
 }
 
 fn main() {
