@@ -2,18 +2,17 @@ use crate::camera::*;
 use crate::input::*;
 
 
-pub struct CameraController {
+pub struct OrbitCamera {
     speed: f32,
 }
 
-impl CameraController {
+impl OrbitCamera {
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
         }
     }
 
-    // Orbit camera
     pub fn update_camera(&self, camera: &mut Camera, input: &InputState, elapsed: f32) {
         let is_forward_pressed = input.key_pressed(VirtualKeyCode::W) || input.key_pressed(VirtualKeyCode::Up);
         let is_left_pressed = input.key_pressed(VirtualKeyCode::A) || input.key_pressed(VirtualKeyCode::Left);

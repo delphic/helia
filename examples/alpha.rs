@@ -1,7 +1,7 @@
 use glam::*;
 use helia::{
     camera::Camera,
-    camera_controller::*,
+    orbit_camera::*,
     entity::{EntityId, InstanceProperties},
     material::Material,
     mesh::Mesh,
@@ -77,7 +77,7 @@ const CUBE_INDICES: &[u16] = &[
 ];
 
 pub struct GameState {
-    camera_controller: Option<CameraController>,
+    orbit_camera: Option<OrbitCamera>,
     cubes: Vec<EntityId>,
     time: f32,
 }
@@ -130,7 +130,7 @@ impl Game for GameState {
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
         self.time += elapsed; // todo: should be getting this from helia
-        if let Some(camera_controller) = &self.camera_controller {
+        if let Some(camera_controller) = &self.orbit_camera {
             camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
 
@@ -155,7 +155,7 @@ impl Game for GameState {
 
 pub async fn run() {
     let game_state = GameState {
-        camera_controller: Some(CameraController::new(1.5)),
+        orbit_camera: Some(OrbitCamera::new(1.5)),
         cubes: Vec::new(),
         time: 0.0,
     };

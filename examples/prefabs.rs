@@ -1,6 +1,6 @@
 use glam::*;
 use helia::{
-    camera::Camera, camera_controller::*, entity::*, material::Material,
+    camera::Camera, orbit_camera::*, entity::*, material::Material,
     mesh::Mesh, shader::Vertex, texture::Texture, *,
 };
 
@@ -37,7 +37,7 @@ const INSTANCE_DISPLACEMENT: Vec3 = Vec3::new(
 );
 
 pub struct GameState {
-    camera_controller: Option<CameraController>,
+    orbit_camera: Option<OrbitCamera>,
 }
 
 impl Game for GameState {
@@ -116,7 +116,7 @@ impl Game for GameState {
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
-        if let Some(camera_controller) = &self.camera_controller {
+        if let Some(camera_controller) = &self.orbit_camera {
             camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
     }
@@ -128,7 +128,7 @@ impl Game for GameState {
 
 pub async fn run() {
     let game_state = GameState {
-        camera_controller: Some(CameraController::new(1.5)),
+        orbit_camera: Some(OrbitCamera::new(1.5)),
     };
     helia::run(Box::new(game_state)).await;
 }

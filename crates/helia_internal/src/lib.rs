@@ -20,7 +20,7 @@ pub mod input;
 pub mod prefab;
 pub mod scene;
 
-pub mod camera_controller;
+pub mod orbit_camera;
 
 pub mod camera;
 pub mod material;
