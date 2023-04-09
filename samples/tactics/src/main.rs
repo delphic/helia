@@ -90,7 +90,8 @@ impl Character {
 
     pub fn is_move_valid(&self, grid: &Grid, delta: IVec2) -> bool {
         let target_position = self.position + delta;
-        let distance = (target_position.x - self.last_position.x).abs() + (target_position.y - self.last_position.y).abs(); 
+        let distance = (target_position.x - self.last_position.x).abs()
+            + (target_position.y - self.last_position.y).abs();
         grid.is_in_bounds(target_position) && distance <= self.movement as i32
     }
 }

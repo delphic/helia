@@ -1,7 +1,13 @@
 use glam::*;
 use helia::{
-    camera::{Camera, OrthographicSize}, orbit_camera::*, entity::*, material::Material,
-    mesh::Mesh, shader::Vertex, texture::Texture, *,
+    camera::{Camera, OrthographicSize},
+    entity::*,
+    material::Material,
+    mesh::Mesh,
+    orbit_camera::*,
+    shader::Vertex,
+    texture::Texture,
+    *,
 };
 
 const VERTICES: &[Vertex] = &[

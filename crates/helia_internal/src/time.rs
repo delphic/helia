@@ -1,18 +1,18 @@
 use instant::Instant;
 
 pub struct Time {
-    /// total elapsed game time since startup 
+    /// total elapsed game time since startup
     pub total_elapsed: f32,
-    /// game time elapsed in last frame 
+    /// game time elapsed in last frame
     pub elapsed: f32,
     /// speed at which time updates relative to wall clock time
     pub time_scale: f32,
     /// the maximum considered length of a frame
-    /// game time will run slower if this is exceeded 
+    /// game time will run slower if this is exceeded
     pub max_frame_time_ms: Option<u32>,
     /// total elapsed time since startup
     pub total_elapsed_real_time: f32,
-    /// real time elapsed in last frame 
+    /// real time elapsed in last frame
     pub elapsed_real_time: f32,
     last_update_time: Instant,
     real_time_instant: Instant,
@@ -39,7 +39,7 @@ impl Time {
     pub fn reset(&mut self) {
         self.total_elapsed = 0.0;
         self.real_time_instant = Instant::now();
-    } 
+    }
 }
 
 impl Default for Time {

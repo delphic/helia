@@ -1,5 +1,10 @@
 use glam::*;
-use helia::{camera::{Camera, OrthographicSize}, entity::*, mesh::Mesh, *};
+use helia::{
+    camera::{Camera, OrthographicSize},
+    entity::*,
+    mesh::Mesh,
+    *,
+};
 
 // todo: move to helia::aseprite module
 // ideally should be optional module

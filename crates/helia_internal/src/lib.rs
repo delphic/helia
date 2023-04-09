@@ -1,11 +1,11 @@
 use glam::*;
 use slotmap::SlotMap;
 use winit::{
+    dpi::PhysicalSize,
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::Window,
     window::WindowBuilder,
-    dpi::PhysicalSize,
 };
 
 use material::*;

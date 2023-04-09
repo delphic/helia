@@ -1,10 +1,10 @@
 use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
-    orbit_camera::*,
     entity::{EntityId, InstanceProperties},
     material::Material,
     mesh::Mesh,
+    orbit_camera::*,
     texture::Texture,
     *,
 };

@@ -1,5 +1,8 @@
 use glam::*;
-use helia::{camera::{Camera, OrthographicSize}, *};
+use helia::{
+    camera::{Camera, OrthographicSize},
+    *,
+};
 
 pub struct GameState {}
 

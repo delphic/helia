@@ -31,7 +31,12 @@ impl Mesh {
         }
     }
 
-    pub fn from_arrays(positions: &[glam::Vec3], uvs: &[glam::Vec2], indicies: &[u16], device: &wgpu::Device) -> Self {
+    pub fn from_arrays(
+        positions: &[glam::Vec3],
+        uvs: &[glam::Vec2],
+        indicies: &[u16],
+        device: &wgpu::Device,
+    ) -> Self {
         let mut vertices = Vec::new();
         for i in 0..positions.len() {
             vertices.push(Vertex {

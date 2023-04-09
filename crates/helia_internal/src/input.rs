@@ -1,7 +1,14 @@
-use std::{cmp::Eq, hash::Hash, collections::{HashSet, HashMap}};
 use glam::Vec2;
 use instant::Instant;
-use winit::{event::{WindowEvent, ElementState, KeyboardInput, MouseScrollDelta}, dpi::PhysicalPosition};
+use std::{
+    cmp::Eq,
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
+use winit::{
+    dpi::PhysicalPosition,
+    event::{ElementState, KeyboardInput, MouseScrollDelta, WindowEvent},
+};
 
 pub type VirtualKeyCode = winit::event::VirtualKeyCode;
 pub type MouseButton = winit::event::MouseButton;
@@ -76,20 +83,22 @@ impl<T: Eq + Hash + Copy> InputMap<T> {
 impl InputState {
     pub fn process_events(&mut self, event: &WindowEvent) {
         match event {
-            WindowEvent::MouseInput { state, button, .. } => {
-                match *state {
-                    ElementState::Pressed => self.mouse_button_map.pressed(*button),
-                    ElementState::Released => self.mouse_button_map.released(*button),
+            WindowEvent::MouseInput { state, button, .. } => match *state {
+                ElementState::Pressed => self.mouse_button_map.pressed(*button),
+                ElementState::Released => self.mouse_button_map.released(*button),
+            },
+            WindowEvent::MouseWheel { delta, .. } => match *delta {
+                MouseScrollDelta::LineDelta(x, y) => self.mouse_scroll_delta += Vec2::new(x, y),
+                MouseScrollDelta::PixelDelta(position) => {
+                    self.mouse_scroll_delta +=
+                        self.pixel_scroll_ratio * Vec2::new(position.x as f32, position.y as f32)
                 }
             },
-            WindowEvent::MouseWheel { delta, .. } => {
-                match *delta {
-                    MouseScrollDelta::LineDelta(x, y) => self.mouse_scroll_delta += Vec2::new(x, y),
-                    MouseScrollDelta::PixelDelta(position) => self.mouse_scroll_delta += self.pixel_scroll_ratio * Vec2::new(position.x as f32, position.y as f32),
-                }
-            }
-            WindowEvent::CursorMoved { position, .. } => { 
-                self.mouse_delta = Vec2::new((position.x - self.last_mouse_position.x) as f32, (position.y - self.last_mouse_position.y) as f32);
+            WindowEvent::CursorMoved { position, .. } => {
+                self.mouse_delta = Vec2::new(
+                    (position.x - self.last_mouse_position.x) as f32,
+                    (position.y - self.last_mouse_position.y) as f32,
+                );
                 self.mouse_position = *position;
             }
             WindowEvent::KeyboardInput {
@@ -100,13 +109,11 @@ impl InputState {
                         ..
                     },
                 ..
-            } => {
-                match *state {
-                    ElementState::Pressed => self.key_map.pressed(*keycode),
-                    ElementState::Released => self.key_map.released(*keycode),
-                }
-            }
-            _ => {},
+            } => match *state {
+                ElementState::Pressed => self.key_map.pressed(*keycode),
+                ElementState::Released => self.key_map.released(*keycode),
+            },
+            _ => {}
         }
     }
 
@@ -181,4 +188,4 @@ impl Default for InputState {
             mouse_scroll_delta: Vec2::ZERO,
         }
     }
-} 
+}

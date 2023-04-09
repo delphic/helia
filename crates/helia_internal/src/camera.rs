@@ -28,22 +28,32 @@ pub struct OrthographicSize {
 
 impl OrthographicSize {
     pub fn new(left: f32, right: f32, top: f32, bottom: f32) -> Self {
-        Self { left, right, top, bottom }
+        Self {
+            left,
+            right,
+            top,
+            bottom,
+        }
     }
 
     pub fn from_width_height(width: f32, height: f32) -> Self {
-        Self { left: -0.5 * width, right: 0.5 * width, bottom: -0.5 * height, top: 0.5 * height, }
+        Self {
+            left: -0.5 * width,
+            right: 0.5 * width,
+            bottom: -0.5 * height,
+            top: 0.5 * height,
+        }
     }
 
     pub fn from_ratio_height(height: f32, ratio: f32) -> Self {
         Self::from_width_height(ratio * height, height)
     }
 
-    /// Create orthographic viewport from physical size ensuring integer boundary values 
+    /// Create orthographic viewport from physical size ensuring integer boundary values
     /// Use for pixel perfect alignment
     pub fn from_size(size: PhysicalSize<u32>) -> Self {
         Self {
-            left: (-0.5 * size.width as f32).ceil(), 
+            left: (-0.5 * size.width as f32).ceil(),
             right: (0.5 * size.width as f32).ceil(),
             bottom: (-0.5 * size.height as f32).ceil(),
             top: (0.5 * size.height as f32).ceil(),
@@ -55,7 +65,7 @@ impl OrthographicSize {
     pub fn from_size_scale(size: PhysicalSize<u32>, pixel_ratio: u32) -> Self {
         let scale = 0.5 * (pixel_ratio as f32).recip();
         Self {
-            left: (-scale * size.width as f32).ceil(), 
+            left: (-scale * size.width as f32).ceil(),
             right: (scale * size.width as f32).ceil(),
             bottom: (-scale * size.height as f32).ceil(),
             top: (scale * size.height as f32).ceil(),

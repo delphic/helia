@@ -129,7 +129,7 @@ pub struct Shader {
     // ^^ these last two should be shared between shaders where possible
     pub requires_ordering: bool,
     bytes_delegate: fn(entity: &Entity, bytes: &mut Vec<u8>),
-    bytes_buffer: Vec<u8>
+    bytes_buffer: Vec<u8>,
 }
 
 impl Shader {
