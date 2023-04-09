@@ -1,5 +1,13 @@
 use glam::*;
-use helia::{camera::{Camera, OrthographicSize}, entity::*, mesh::{Mesh, MeshId}, *, material::{MaterialId, Material}, texture::Texture, input::VirtualKeyCode};
+use helia::{
+    camera::{Camera, OrthographicSize},
+    entity::*,
+    input::VirtualKeyCode,
+    material::{Material, MaterialId},
+    mesh::{Mesh, MeshId},
+    texture::Texture,
+    *,
+};
 
 const QUAD_POSITIONS: &[Vec3] = &[
     Vec3::new(-0.5, -0.5, 0.0),
@@ -16,25 +24,30 @@ const QUAD_UVS: &[Vec2] = &[
 const QUAD_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
 fn sized_quad_positions(width: f32, height: f32) -> Vec<Vec3> {
-    QUAD_POSITIONS.iter().map(|v| Vec3::new(width * v.x, height * v.y, v.z)).collect::<Vec<Vec3>>()
+    QUAD_POSITIONS
+        .iter()
+        .map(|v| Vec3::new(width * v.x, height * v.y, v.z))
+        .collect::<Vec<Vec3>>()
 }
 
 pub struct Grid {
     size: IVec2,
-    base_offset: Vec3, 
+    base_offset: Vec3,
 }
 
 impl Grid {
     fn new() -> Self {
         Self {
-           size: IVec2::new(12, 3),
-           base_offset:  Vec3::new(-400.0, 16.0, 32.0), // dependent on bg sprite currently
+            size: IVec2::new(12, 3),
+            base_offset: Vec3::new(-400.0, 16.0, 32.0), // dependent on bg sprite currently
         }
     }
 
     fn is_in_bounds(&self, grid_position: IVec2) -> bool {
-        grid_position.x >= 0 && grid_position.x < self.size.x
-            && grid_position.y >= 0 && grid_position.y < self.size.y
+        grid_position.x >= 0
+            && grid_position.x < self.size.x
+            && grid_position.y >= 0
+            && grid_position.y < self.size.y
     }
 
     fn get_translation_for_position(&self, grid_position: IVec2) -> Vec3 {
@@ -46,19 +59,44 @@ impl Grid {
 
 pub struct Character {
     position: IVec2,
+    last_position: IVec2,
     sprite: EntityId,
+    movement: u16,
 }
 
 impl Character {
+    pub fn create_on_grid(
+        position: IVec2,
+        mesh_id: MeshId,
+        material_id: MaterialId,
+        grid: &Grid,
+        state: &mut State,
+    ) -> Self {
+        let position = position.clamp(IVec2::ZERO, grid.size);
+        let sprite = state.scene.add_entity(
+            mesh_id,
+            material_id,
+            InstanceProperties::builder()
+                .with_translation(grid.get_translation_for_position(position))
+                .build(),
+        );
+        Self {
+            position,
+            last_position: position,
+            sprite,
+            movement: 3,
+        }
+    }
+
     pub fn is_move_valid(&self, grid: &Grid, delta: IVec2) -> bool {
-        // creating new function so that when we want to compare to start_position
-        // we have some where to add it easily
-        grid.is_in_bounds(self.position + delta)
-    } 
+        let target_position = self.position + delta;
+        let distance = (target_position.x - self.last_position.x).abs() + (target_position.y - self.last_position.y).abs(); 
+        grid.is_in_bounds(target_position) && distance <= self.movement as i32
+    }
 }
 
 pub struct Player {
-    character: Character
+    character: Character,
 }
 
 impl Player {
@@ -90,7 +128,13 @@ impl Player {
         if delta != IVec2::ZERO {
             character.position += delta;
             let entity = state.scene.get_entity_mut(character.sprite);
-            entity.properties.transform = Mat4::from_translation(grid.get_translation_for_position(character.position));
+            entity.properties.transform =
+                Mat4::from_translation(grid.get_translation_for_position(character.position));
+        }
+
+        if state.input.key_down(VirtualKeyCode::Z) {
+            // this would change battle state if we had any other states
+            character.last_position = character.position;
         }
     }
 }
@@ -111,24 +155,42 @@ impl GameState {
 
 impl Game for GameState {
     fn init(&mut self, state: &mut State) {
-        fn build_sprite_resources(label: &str, width: f32, height: f32, sprite_bytes: &[u8], state: &mut State) -> (MeshId, MaterialId) {
-            let texture = Texture::from_bytes(
-                &state.device,
-                &state.queue,
-                sprite_bytes,
-                label,
-            )
-            .unwrap();
+        fn build_sprite_resources(
+            label: &str,
+            width: f32,
+            height: f32,
+            sprite_bytes: &[u8],
+            state: &mut State,
+        ) -> (MeshId, MaterialId) {
+            let texture =
+                Texture::from_bytes(&state.device, &state.queue, sprite_bytes, label).unwrap();
             let material = Material::new(state.shaders.sprite, texture, &state);
             let material_id = state.resources.materials.insert(material);
-    
-            let quad_mesh = Mesh::from_arrays(&sized_quad_positions(width, height).as_slice(), QUAD_UVS, QUAD_INDICES, &state.device);
+
+            let quad_mesh = Mesh::from_arrays(
+                &sized_quad_positions(width, height).as_slice(),
+                QUAD_UVS,
+                QUAD_INDICES,
+                &state.device,
+            );
             let mesh_id = state.resources.meshes.insert(quad_mesh);
             (mesh_id, material_id)
         }
 
-        let helia_sprite = build_sprite_resources("helia", 96.0, 96.0, include_bytes!("../assets/helia.png"), state);
-        let bg_sprite = build_sprite_resources("bg", 960.0, 480.0, include_bytes!("../assets/placeholder-bg.png"), state);
+        let helia_sprite_ids = build_sprite_resources(
+            "helia",
+            96.0,
+            96.0,
+            include_bytes!("../assets/helia.png"),
+            state,
+        );
+        let bg_sprite_ids = build_sprite_resources(
+            "bg",
+            960.0,
+            480.0,
+            include_bytes!("../assets/placeholder-bg.png"),
+            state,
+        );
 
         let camera = Camera {
             eye: (0.0, 0.0, 2.0).into(),
@@ -145,26 +207,23 @@ impl Game for GameState {
 
         state.scene.camera = camera;
 
-        let grid_position = IVec2::new(8, 1);
-        let player_entity_id = state.scene.add_entity(
-                helia_sprite.0,
-                helia_sprite.1,
-                InstanceProperties::builder()
-                    .with_translation(self.grid.get_translation_for_position(grid_position))
-                    .build(),
-            );
-        let player_character = Character {
-            sprite: player_entity_id,
-            position: grid_position,
-        };
-        self.player = Some(Player { character: player_character });
+        let player_character = Character::create_on_grid(
+            IVec2::new(8, 1),
+            helia_sprite_ids.0,
+            helia_sprite_ids.1,
+            &self.grid,
+            state,
+        );
+        self.player = Some(Player {
+            character: player_character,
+        });
 
         state.scene.add_entity(
-            bg_sprite.0,
-            bg_sprite.1,
+            bg_sprite_ids.0,
+            bg_sprite_ids.1,
             InstanceProperties::builder()
                 .with_translation(Vec3::new(0.0, 0.0, -100.0))
-                .build()
+                .build(),
         );
     }
 
@@ -184,7 +243,8 @@ pub async fn run() {
         .with_title("Helia Tactics")
         .with_size(960, 640)
         .with_resizable(false)
-        .run(Box::new(GameState::new())).await;
+        .run(Box::new(GameState::new()))
+        .await;
 }
 
 #[cfg(target_arch = "wasm32")]
