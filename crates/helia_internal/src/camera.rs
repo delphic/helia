@@ -25,7 +25,7 @@ pub struct Camera {
     pub fov: f32,
     pub near: f32,
     pub far: f32,
-    pub size: f32,
+    pub size: Vec2,
     pub clear_color: wgpu::Color,
     pub projection: Projection,
 }
@@ -39,10 +39,10 @@ impl Camera {
                 Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far)
             }
             Projection::Orthographic => Mat4::orthographic_rh(
-                -0.5 * self.size * self.aspect_ratio,
-                0.5 * self.size * self.aspect_ratio,
-                -0.5 * self.size,
-                0.5 * self.size,
+                -0.5 * self.size.x,
+                0.5 * self.size.x,
+                -0.5 * self.size.y,
+                0.5 * self.size.y,
                 self.near,
                 self.far,
             ),
@@ -62,7 +62,7 @@ impl Default for Camera {
             fov: 60.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 1000.0,
-            size: 1.0,
+            size: Vec2::ONE,
             clear_color: wgpu::Color::BLACK,
             projection: Projection::Perspective,
         }

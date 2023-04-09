@@ -14,7 +14,7 @@ impl Game for GameState {
             near: 0.01,
             far: 1000.0,
             projection: camera::Projection::Perspective,
-            size: 1.0,
+            size: Vec2::ONE,
             clear_color: Color {
                 r: 0.1,
                 g: 0.2,
@@ -43,7 +43,7 @@ impl Game for GameState {
 
 pub async fn run() {
     let game_state = GameState {};
-    helia::run(Box::new(game_state)).await;
+    Helia::new().run(Box::new(game_state)).await;
 }
 
 #[cfg(target_arch = "wasm32")]

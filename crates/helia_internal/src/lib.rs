@@ -5,6 +5,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::Window,
     window::WindowBuilder,
+    dpi::PhysicalSize,
 };
 
 use material::*;
@@ -225,99 +226,131 @@ pub trait Game {
     fn resize(&mut self, state: &mut State);
 }
 
-pub async fn run(mut game: Box<dyn Game>) {
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-            console_log::init_with_level(log::Level::Info).expect("Couldn't initialize logger");
-        } else {
-            env_logger::builder().filter_level(log::LevelFilter::Info).init();
+pub struct Helia {
+    title: String,
+    resizable: bool,
+    window_size: PhysicalSize<u32>,
+}
+
+impl Helia {
+    pub fn new() -> Self {
+        Self {
+            title: "Helia".to_string(),
+            resizable: false,
+            window_size: PhysicalSize::new(960, 540),
         }
     }
 
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("Helia")
-        .build(&event_loop)
-        .unwrap();
+    // Note: if we want to support full_screen, then need to detect
+    // resolution of the monitor and size the surface accoridngly
 
-    #[cfg(target_arch = "wasm32")]
-    {
-        // Winit prevents sizing with CSS, so we have
-        // to set the size manually when on the web
-        use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(960, 540));
-
-        use winit::platform::web::WindowExtWebSys;
-        web_sys::window()
-            .and_then(|win| win.document())
-            .and_then(|doc| {
-                let dst = doc.get_element_by_id("helia")?;
-                let canvas = web_sys::Element::from(window.canvas());
-                dst.append_child(&canvas).ok()?;
-                Some(())
-            })
-            .expect("Couldn't append canvas to document body.");
+    pub fn with_title<T: Into<String>>(&mut self, title: T) -> &mut Self {
+        self.title = title.into();
+        self
     }
 
-    let mut state = State::new(&window).await;
+    pub fn with_size(&mut self, width: u32, height: u32) -> &mut Self {
+        self.window_size = PhysicalSize::new(width, height);
+        self
+    }
 
-    game.init(&mut state);
+    pub fn with_resizable(&mut self, resizable: bool) -> &mut Self {
+        self.resizable = resizable;
+        self
+    }
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
-            ref event,
-            window_id,
-        } if window_id == window.id() => {
-            state.input.process_events(event);
-            match event {
-                WindowEvent::CloseRequested
-                | WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            ..
-                        },
-                    ..
-                } => *control_flow = ControlFlow::Exit,
-                WindowEvent::Resized(physical_size) => {
-                    if state.resize(*physical_size) {
-                        game.resize(&mut state);
-                    }
-                }
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    // new_inner_size is &&mut so we have to dereference it twice
-                    if state.resize(**new_inner_size) {
-                        game.resize(&mut state);
-                    }
-                }
-                _ => {}
+    pub async fn run(&self, mut game: Box<dyn Game>) {
+        cfg_if::cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+                console_log::init_with_level(log::Level::Info).expect("Couldn't initialize logger");
+            } else {
+                env_logger::builder().filter_level(log::LevelFilter::Info).init();
             }
         }
-        Event::RedrawRequested(window_id) if window_id == window.id() => {
-            let elapsed = state.time.update();
-            game.update(&mut state, elapsed);
-            state.update();
-            state.input.frame_finished();
 
-            match state.render() {
-                Ok(_) => {}
-                // Reconfigure the surface if lost
-                Err(wgpu::SurfaceError::Lost) => {
-                    state.resize(state.size);
+        let event_loop = EventLoop::new();
+
+        let window = WindowBuilder::new()
+            .with_title(self.title.clone())
+            .with_resizable(self.resizable)
+            .with_inner_size(self.window_size)
+            .build(&event_loop)
+            .unwrap();
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use winit::platform::web::WindowExtWebSys;
+            web_sys::window()
+                .and_then(|win| win.document())
+                .and_then(|doc| {
+                    let dst = doc.get_element_by_id("helia")?;
+                    let canvas = web_sys::Element::from(window.canvas());
+                    dst.append_child(&canvas).ok()?;
+                    Some(())
+                })
+                .expect("Couldn't append canvas to document body.");
+        }
+
+        let mut state = State::new(&window).await;
+
+        game.init(&mut state);
+
+        event_loop.run(move |event, _, control_flow| match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == window.id() => {
+                state.input.process_events(event);
+                match event {
+                    WindowEvent::CloseRequested
+                    | WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            },
+                        ..
+                    } => *control_flow = ControlFlow::Exit,
+                    WindowEvent::Resized(physical_size) => {
+                        if state.resize(*physical_size) {
+                            game.resize(&mut state);
+                        }
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        // new_inner_size is &&mut so we have to dereference it twice
+                        if state.resize(**new_inner_size) {
+                            game.resize(&mut state);
+                        }
+                    }
+                    _ => {}
                 }
-                // The system is out of memory, we should probably quit
-                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                // All other errors (Outdated, Timeout) should be resolved by the next frame
-                Err(e) => eprintln!("{:?}", e),
             }
-        }
-        Event::MainEventsCleared => {
-            // RedrawRequested will only trigger once, unless we manually
-            // request it.
-            window.request_redraw();
-        }
-        _ => {}
-    });
+            Event::RedrawRequested(window_id) if window_id == window.id() => {
+                let elapsed = state.time.update();
+                game.update(&mut state, elapsed);
+                state.update();
+                state.input.frame_finished();
+
+                match state.render() {
+                    Ok(_) => {}
+                    // Reconfigure the surface if lost
+                    Err(wgpu::SurfaceError::Lost) => {
+                        state.resize(state.size);
+                    }
+                    // The system is out of memory, we should probably quit
+                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    // All other errors (Outdated, Timeout) should be resolved by the next frame
+                    Err(e) => eprintln!("{:?}", e),
+                }
+            }
+            Event::MainEventsCleared => {
+                // RedrawRequested will only trigger once, unless we manually
+                // request it.
+                window.request_redraw();
+            }
+            _ => {}
+        });
+    }
 }

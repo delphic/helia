@@ -1,6 +1,8 @@
 use glam::*;
 use helia::{camera::Camera, entity::*, mesh::Mesh, *};
 
+// todo: move to helia::aseprite module
+// ideally should be optional module
 mod aseprite {
     #[derive(Debug, serde::Deserialize)]
     pub struct AsepriteAnimation {
@@ -73,11 +75,12 @@ impl Game for GameState {
         let quad_mesh = Mesh::from_arrays(QUAD_POSITIONS, QUAD_UVS, QUAD_INDICES, &state.device);
         let mesh_id = state.resources.meshes.insert(quad_mesh);
 
+        let ratio = state.size.width as f32 / state.size.height as f32;
         let camera = Camera {
             eye: (0.0, 0.0, 2.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: Vec3::Y,
-            aspect_ratio: state.size.width as f32 / state.size.height as f32,
+            aspect_ratio: ratio,
             fov: 60.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 1000.0,
@@ -88,7 +91,7 @@ impl Game for GameState {
                 a: 1.0,
             },
             projection: camera::Projection::Orthographic,
-            size: 1.0,
+            size: Vec2::new(ratio * 1.0, 1.0),
         };
 
         state.scene.camera = camera;
@@ -121,7 +124,9 @@ impl Game for GameState {
     }
 
     fn resize(&mut self, state: &mut State) {
+        let ratio = state.size.width as f32 / state.size.height as f32;
         state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
+        state.scene.camera.size = Vec2::new(ratio * 1.0, 1.0);
     }
 }
 
@@ -146,7 +151,7 @@ pub async fn run() {
         ))
         .unwrap(),
     };
-    helia::run(Box::new(game_state)).await;
+    Helia::new().run(Box::new(game_state)).await;
 }
 
 #[cfg(target_arch = "wasm32")]

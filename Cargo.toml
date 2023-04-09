@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/delphic/helia"
 
 [workspace]
-members = [ "crates/*", "examples/*" ]
+members = [ "crates/*", "examples/*", "samples/*" ]
 
 [dependencies]
 helia_internal = { path = "crates/helia_internal" }

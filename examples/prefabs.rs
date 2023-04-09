@@ -60,7 +60,7 @@ impl Game for GameState {
                 a: 1.0,
             },
             projection: camera::Projection::Perspective,
-            size: 1.0,
+            size: Vec2::ONE,
         };
 
         state.scene.camera = camera;
@@ -130,7 +130,7 @@ pub async fn run() {
     let game_state = GameState {
         orbit_camera: Some(OrbitCamera::new(1.5)),
     };
-    helia::run(Box::new(game_state)).await;
+    Helia::new().run(Box::new(game_state)).await;
 }
 
 #[cfg(target_arch = "wasm32")]
