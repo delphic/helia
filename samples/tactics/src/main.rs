@@ -1,5 +1,5 @@
 use glam::*;
-use helia::{camera::{Camera, OrthographicSize}, entity::*, mesh::{Mesh, MeshId}, *, material::{MaterialId, Material}, texture::Texture};
+use helia::{camera::{Camera, OrthographicSize}, entity::*, mesh::{Mesh, MeshId}, *, material::{MaterialId, Material}, texture::Texture, input::VirtualKeyCode};
 
 const QUAD_POSITIONS: &[Vec3] = &[
     Vec3::new(-0.5, -0.5, 0.0),
@@ -19,8 +19,94 @@ fn sized_quad_positions(width: f32, height: f32) -> Vec<Vec3> {
     QUAD_POSITIONS.iter().map(|v| Vec3::new(width * v.x, height * v.y, v.z)).collect::<Vec<Vec3>>()
 }
 
+pub struct Grid {
+    size: IVec2,
+    base_offset: Vec3, 
+}
+
+impl Grid {
+    fn new() -> Self {
+        Self {
+           size: IVec2::new(12, 3),
+           base_offset:  Vec3::new(-400.0, 16.0, 32.0), // dependent on bg sprite currently
+        }
+    }
+
+    fn is_in_bounds(&self, grid_position: IVec2) -> bool {
+        grid_position.x >= 0 && grid_position.x < self.size.x
+            && grid_position.y >= 0 && grid_position.y < self.size.y
+    }
+
+    fn get_translation_for_position(&self, grid_position: IVec2) -> Vec3 {
+        let x = grid_position.x as f32;
+        let y = grid_position.y as f32;
+        self.base_offset + Vec3::new(64.0 * x + 32.0 * y, -32.0 * y, 16.0 * y)
+    }
+}
+
+pub struct Character {
+    position: IVec2,
+    sprite: EntityId,
+}
+
+impl Character {
+    pub fn is_move_valid(&self, grid: &Grid, delta: IVec2) -> bool {
+        // creating new function so that when we want to compare to start_position
+        // we have some where to add it easily
+        grid.is_in_bounds(self.position + delta)
+    } 
+}
+
+pub struct Player {
+    character: Character
+}
+
+impl Player {
+    fn update(&mut self, grid: &Grid, state: &mut State, _elapsed: f32) {
+        let character = &mut self.character;
+        let mut delta = IVec2::ZERO;
+        if state.input.key_down(VirtualKeyCode::Left) {
+            if character.is_move_valid(grid, IVec2::NEG_X) {
+                delta += IVec2::NEG_X;
+            }
+        }
+        if state.input.key_down(VirtualKeyCode::Right) {
+            if character.is_move_valid(grid, IVec2::X) {
+                delta += IVec2::X;
+            }
+        }
+
+        if state.input.key_down(VirtualKeyCode::Up) {
+            if character.is_move_valid(grid, IVec2::NEG_Y) {
+                delta += IVec2::NEG_Y;
+            }
+        }
+        if state.input.key_down(VirtualKeyCode::Down) {
+            if character.is_move_valid(grid, IVec2::Y) {
+                delta += IVec2::Y;
+            }
+        }
+
+        if delta != IVec2::ZERO {
+            character.position += delta;
+            let entity = state.scene.get_entity_mut(character.sprite);
+            entity.properties.transform = Mat4::from_translation(grid.get_translation_for_position(character.position));
+        }
+    }
+}
+
 pub struct GameState {
-    sprite: Option<EntityId>,
+    player: Option<Player>,
+    grid: Grid,
+}
+
+impl GameState {
+    fn new() -> Self {
+        Self {
+            player: None,
+            grid: Grid::new(),
+        }
+    }
 }
 
 impl Game for GameState {
@@ -59,15 +145,19 @@ impl Game for GameState {
 
         state.scene.camera = camera;
 
-        self.sprite = Some(
-            state.scene.add_entity(
+        let grid_position = IVec2::new(8, 1);
+        let player_entity_id = state.scene.add_entity(
                 helia_sprite.0,
                 helia_sprite.1,
                 InstanceProperties::builder()
-                    .with_translation(Vec3::new(64.0, 0.0, 0.0)) // right/left is x: +/- 64, down / up is x : +/-32.0, y: +/-32.0
+                    .with_translation(self.grid.get_translation_for_position(grid_position))
                     .build(),
-            ),
-        );
+            );
+        let player_character = Character {
+            sprite: player_entity_id,
+            position: grid_position,
+        };
+        self.player = Some(Player { character: player_character });
 
         state.scene.add_entity(
             bg_sprite.0,
@@ -78,8 +168,10 @@ impl Game for GameState {
         );
     }
 
-    fn update(&mut self, _state: &mut State, _elapsed: f32) {
-
+    fn update(&mut self, state: &mut State, _elapsed: f32) {
+        if let Some(player) = &mut self.player {
+            player.update(&self.grid, state, _elapsed);
+        }
     }
 
     fn resize(&mut self, state: &mut State) {
@@ -88,15 +180,11 @@ impl Game for GameState {
 }
 
 pub async fn run() {
-    let game_state = GameState {
-        sprite: None,
-    };
     Helia::new()
         .with_title("Helia Tactics")
         .with_size(960, 640)
-
         .with_resizable(false)
-        .run(Box::new(game_state)).await;
+        .run(Box::new(GameState::new())).await;
 }
 
 #[cfg(target_arch = "wasm32")]
