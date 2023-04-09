@@ -39,13 +39,26 @@ impl OrthographicSize {
         Self::from_width_height(ratio * height, height)
     }
 
-    /// Create orthographic viewport from physical size ensuring integer boundary values via floor (use for pixel perfect)
+    /// Create orthographic viewport from physical size ensuring integer boundary values 
+    /// Use for pixel perfect alignment
     pub fn from_size(size: PhysicalSize<u32>) -> Self {
         Self {
             left: (-0.5 * size.width as f32).ceil(), 
             right: (0.5 * size.width as f32).ceil(),
             bottom: (-0.5 * size.height as f32).ceil(),
             top: (0.5 * size.height as f32).ceil(),
+        }
+    }
+
+    /// Create orthographic viewport from physical size, scaled by a pixel ratio, ensuring integer boundary values
+    /// Use for upscaled pixel perfect alignment
+    pub fn from_size_scale(size: PhysicalSize<u32>, pixel_ratio: u32) -> Self {
+        let scale = 0.5 * (pixel_ratio as f32).recip();
+        Self {
+            left: (-scale * size.width as f32).ceil(), 
+            right: (scale * size.width as f32).ceil(),
+            bottom: (-scale * size.height as f32).ceil(),
+            top: (scale * size.height as f32).ceil(),
         }
     }
 }
