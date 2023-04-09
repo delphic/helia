@@ -1,5 +1,6 @@
 use glam::*;
 use wgpu::util::DeviceExt;
+use winit::dpi::PhysicalSize;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols_array(&[
@@ -17,6 +18,44 @@ pub enum Projection {
     Perspective,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct OrthographicSize {
+    left: f32,
+    right: f32,
+    top: f32,
+    bottom: f32,
+}
+
+impl OrthographicSize {
+    pub fn new(left: f32, right: f32, top: f32, bottom: f32) -> Self {
+        Self { left, right, top, bottom }
+    }
+
+    pub fn from_width_height(width: f32, height: f32) -> Self {
+        Self { left: -0.5 * width, right: 0.5 * width, bottom: -0.5 * height, top: 0.5 * height, }
+    }
+
+    pub fn from_ratio_height(height: f32, ratio: f32) -> Self {
+        Self::from_width_height(ratio * height, height)
+    }
+
+    /// Create orthographic viewport from physical size ensuring integer boundary values via floor (use for pixel perfect)
+    pub fn from_size(size: PhysicalSize<u32>) -> Self {
+        Self {
+            left: (-0.5 * size.width as f32).ceil(), 
+            right: (0.5 * size.width as f32).ceil(),
+            bottom: (-0.5 * size.height as f32).ceil(),
+            top: (0.5 * size.height as f32).ceil(),
+        }
+    }
+}
+
+impl Default for OrthographicSize {
+    fn default() -> Self {
+        Self::from_width_height(1.0, 1.0)
+    }
+}
+
 pub struct Camera {
     pub eye: Vec3,
     pub target: Vec3,
@@ -25,7 +64,7 @@ pub struct Camera {
     pub fov: f32,
     pub near: f32,
     pub far: f32,
-    pub size: Vec2,
+    pub size: OrthographicSize,
     pub clear_color: wgpu::Color,
     pub projection: Projection,
 }
@@ -39,10 +78,10 @@ impl Camera {
                 Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far)
             }
             Projection::Orthographic => Mat4::orthographic_rh(
-                -0.5 * self.size.x,
-                0.5 * self.size.x,
-                -0.5 * self.size.y,
-                0.5 * self.size.y,
+                self.size.left,
+                self.size.right,
+                self.size.bottom,
+                self.size.top,
                 self.near,
                 self.far,
             ),
@@ -62,7 +101,7 @@ impl Default for Camera {
             fov: 60.0 * std::f32::consts::PI / 180.0,
             near: 0.01,
             far: 1000.0,
-            size: Vec2::ONE,
+            size: OrthographicSize::default(),
             clear_color: wgpu::Color::BLACK,
             projection: Projection::Perspective,
         }

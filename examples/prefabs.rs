@@ -1,6 +1,6 @@
 use glam::*;
 use helia::{
-    camera::Camera, orbit_camera::*, entity::*, material::Material,
+    camera::{Camera, OrthographicSize}, orbit_camera::*, entity::*, material::Material,
     mesh::Mesh, shader::Vertex, texture::Texture, *,
 };
 
@@ -60,7 +60,7 @@ impl Game for GameState {
                 a: 1.0,
             },
             projection: camera::Projection::Perspective,
-            size: Vec2::ONE,
+            size: OrthographicSize::default(),
         };
 
         state.scene.camera = camera;

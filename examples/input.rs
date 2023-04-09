@@ -1,5 +1,5 @@
 use glam::*;
-use helia::{camera::Camera, *};
+use helia::{camera::{Camera, OrthographicSize}, *};
 
 pub struct GameState {}
 
@@ -14,7 +14,7 @@ impl Game for GameState {
             near: 0.01,
             far: 1000.0,
             projection: camera::Projection::Perspective,
-            size: Vec2::ONE,
+            size: OrthographicSize::default(),
             clear_color: Color {
                 r: 0.1,
                 g: 0.2,

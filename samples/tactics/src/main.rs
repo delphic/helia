@@ -1,5 +1,5 @@
 use glam::*;
-use helia::{camera::Camera, entity::*, mesh::{Mesh, MeshId}, *, material::{MaterialId, Material}, texture::Texture};
+use helia::{camera::{Camera, OrthographicSize}, entity::*, mesh::{Mesh, MeshId}, *, material::{MaterialId, Material}, texture::Texture};
 
 const QUAD_POSITIONS: &[Vec3] = &[
     Vec3::new(-0.5, -0.5, 0.0),
@@ -54,7 +54,7 @@ impl Game for GameState {
             far: 1000.0,
             clear_color: Color::BLACK,
             projection: camera::Projection::Orthographic,
-            size: Vec2::new(state.size.width as f32, state.size.height as f32),
+            size: OrthographicSize::from_size(state.size),
         };
 
         state.scene.camera = camera;
@@ -83,8 +83,7 @@ impl Game for GameState {
     }
 
     fn resize(&mut self, state: &mut State) {
-        state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
-        state.scene.camera.size = Vec2::new(state.size.width as f32, state.size.height as f32);
+        state.scene.camera.size = OrthographicSize::from_size(state.size);
     }
 }
 

@@ -1,5 +1,5 @@
 use glam::*;
-use helia::{camera::Camera, entity::*, mesh::Mesh, *};
+use helia::{camera::{Camera, OrthographicSize}, entity::*, mesh::Mesh, *};
 
 // todo: move to helia::aseprite module
 // ideally should be optional module
@@ -91,7 +91,7 @@ impl Game for GameState {
                 a: 1.0,
             },
             projection: camera::Projection::Orthographic,
-            size: Vec2::new(ratio * 1.0, 1.0),
+            size: OrthographicSize::from_ratio_height(ratio, 1.0),
         };
 
         state.scene.camera = camera;
@@ -125,8 +125,7 @@ impl Game for GameState {
 
     fn resize(&mut self, state: &mut State) {
         let ratio = state.size.width as f32 / state.size.height as f32;
-        state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
-        state.scene.camera.size = Vec2::new(ratio * 1.0, 1.0);
+        state.scene.camera.size = OrthographicSize::from_ratio_height(ratio, 1.0);
     }
 }
 

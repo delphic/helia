@@ -1,6 +1,6 @@
 use glam::*;
 use helia::{
-    camera::Camera,
+    camera::{Camera, OrthographicSize},
     orbit_camera::*,
     entity::*,
     material::Material,
@@ -95,7 +95,7 @@ impl Game for GameState {
             near: 0.01,
             far: 1000.0,
             projection: camera::Projection::Perspective,
-            size: Vec2::ONE,
+            size: OrthographicSize::default(),
             clear_color: Color {
                 r: 0.1,
                 g: 0.2,
