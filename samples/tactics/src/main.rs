@@ -5,6 +5,7 @@ use helia::{
     input::VirtualKeyCode,
     material::{Material, MaterialId},
     mesh::{Mesh, MeshId},
+    prefab::PrefabId,
     texture::Texture,
     *,
 };
@@ -33,13 +34,37 @@ fn sized_quad_positions(width: f32, height: f32) -> Vec<Vec3> {
 pub struct Grid {
     size: IVec2,
     base_offset: Vec3,
+    highlights: Vec<(EntityId, IVec2)>,
 }
 
 impl Grid {
     fn new() -> Self {
+        let size = IVec2::new(12, 3);
+        let base_offset = Vec3::new(-400.0, 16.0, 32.0); // dependent on bg sprite currently
+
         Self {
-            size: IVec2::new(12, 3),
-            base_offset: Vec3::new(-400.0, 16.0, 32.0), // dependent on bg sprite currently
+            size,
+            base_offset,
+            highlights: Vec::new(),
+        }
+    }
+
+    fn init(&mut self, prefab_id: PrefabId, state: &mut State) {
+        let n = (self.size.x * self.size.y) as i32;
+        for i in 0..n {
+            let position = IVec2::new(i % self.size.x, i / self.size.x);
+            let id = state.scene.add_instance(
+                prefab_id,
+                InstanceProperties::builder()
+                    .with_translation(
+                        self.get_translation_for_position(position)
+                            - 48.0 * Vec3::Y
+                            - 32.0 * Vec3::Z,
+                    ) // could sort this y offset with better anchoring and base offset
+                    .with_color(Color::TRANSPARENT) // Visibility rather than transparent would be nice
+                    .build(),
+            );
+            self.highlights.push((id, position));
         }
     }
 
@@ -54,6 +79,26 @@ impl Grid {
         let x = grid_position.x as f32;
         let y = grid_position.y as f32;
         self.base_offset + Vec3::new(64.0 * x + 32.0 * y, -32.0 * y, 16.0 * y)
+    }
+
+    fn distance(a: IVec2, b: IVec2) -> i32 {
+        (a.x - b.x).abs() + (a.y - b.y).abs()
+    }
+
+    fn update_hightlights(&self, position: IVec2, distance: i32, state: &mut State) {
+        for (id, highlight_pos) in self.highlights.iter() {
+            let entity = state.scene.get_entity_mut(*id);
+            entity.properties.color = if Grid::distance(position, *highlight_pos) <= distance {
+                Color {
+                    r: 0.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 0.5,
+                }
+            } else {
+                Color::TRANSPARENT
+            };
+        }
     }
 }
 
@@ -90,9 +135,8 @@ impl Character {
 
     pub fn is_move_valid(&self, grid: &Grid, delta: IVec2) -> bool {
         let target_position = self.position + delta;
-        let distance = (target_position.x - self.last_position.x).abs()
-            + (target_position.y - self.last_position.y).abs();
-        grid.is_in_bounds(target_position) && distance <= self.movement as i32
+        grid.is_in_bounds(target_position)
+            && Grid::distance(target_position, self.last_position) <= self.movement as i32
     }
 }
 
@@ -136,6 +180,7 @@ impl Player {
         if state.input.key_down(VirtualKeyCode::Z) {
             // this would change battle state if we had any other states
             character.last_position = character.position;
+            grid.update_hightlights(character.position, character.movement as i32, state);
         }
     }
 }
@@ -192,6 +237,13 @@ impl Game for GameState {
             include_bytes!("../assets/placeholder-bg.png"),
             state,
         );
+        let highlight_ids = build_sprite_resources(
+            "sq",
+            96.0,
+            32.0,
+            include_bytes!("../assets/grid_sq.png"),
+            state,
+        );
 
         let camera = Camera {
             eye: (0.0, 0.0, 2.0).into(),
@@ -215,6 +267,8 @@ impl Game for GameState {
             &self.grid,
             state,
         );
+        let (player_position, player_movement) =
+            (player_character.position, player_character.movement);
         self.player = Some(Player {
             character: player_character,
         });
@@ -226,6 +280,12 @@ impl Game for GameState {
                 .with_translation(Vec3::new(0.0, 0.0, -100.0))
                 .build(),
         );
+
+        let highlight_prefab = state.scene.create_prefab(highlight_ids.0, highlight_ids.1);
+
+        self.grid.init(highlight_prefab, state);
+        self.grid
+            .update_hightlights(player_position, player_movement as i32, state);
     }
 
     fn update(&mut self, state: &mut State, _elapsed: f32) {
