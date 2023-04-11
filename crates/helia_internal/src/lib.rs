@@ -71,7 +71,6 @@ impl State {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
-        // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::default();
         let surface = unsafe { instance.create_surface(window).unwrap() };
         let adapter = instance
@@ -92,7 +91,7 @@ impl State {
                     limits: if cfg!(target_arch = "wasm32") {
                         wgpu::Limits::downlevel_webgl2_defaults()
                     } else {
-                        wgpu::Limits::default()
+                        wgpu::Limits::downlevel_defaults()
                     },
                     label: None,
                 },
