@@ -1,3 +1,5 @@
+use std::{collections::HashMap, any::{Any, TypeId}};
+
 use glam::{Mat4, Quat, Vec2, Vec3};
 
 use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
@@ -126,6 +128,7 @@ pub struct Entity {
     pub uniform_offset: u64,
     // instance propertires
     pub properties: InstanceProperties,
+    components: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl Entity {
@@ -135,7 +138,28 @@ impl Entity {
             material,
             uniform_offset: 0,
             properties,
+            components: HashMap::new(),
         }
+    }
+
+    pub fn add_component<T: 'static>(&mut self, component: T) {
+        self.components.insert(TypeId::of::<T>(), Box::new(component));
+    } 
+
+    pub fn get_component<T: 'static>(&self) -> Option<&T> {
+        let id = TypeId::of::<T>();
+        if let Some(component) = self.components.get(&id) {
+            return component.downcast_ref::<T>();
+        }
+        None
+    }
+
+    pub fn get_component_mut<T: 'static>(&mut self) -> Option<&mut T> {
+        let id = TypeId::of::<T>();
+        if let Some(component) = self.components.get_mut(&id) {
+            return component.downcast_mut::<T>();
+        }
+        None
     }
 }
 
