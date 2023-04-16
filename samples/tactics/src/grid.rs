@@ -64,8 +64,7 @@ impl Grid {
         (a.x - b.x).abs() + (a.y - b.y).abs()
     }
 
-    pub fn update_hightlights(&self, character: &Character, state: &mut State) {
-        // todo: bfs from position
+    pub fn generate_distance_map(&self, character: &Character) -> HashMap<IVec2, u16> {
         let mut position_queue = VecDeque::new();
         let mut position_set: HashSet<IVec2> = HashSet::new();
         let mut reachable_positions: HashMap<IVec2, u16> = HashMap::new();
@@ -96,18 +95,40 @@ impl Grid {
             }
         }
 
-        for (id, highlight_pos) in self.highlights.iter() {
-            let entity = state.scene.get_entity_mut(*id);
-            entity.properties.color = if reachable_positions.contains_key(&highlight_pos) {
-                Color {
-                    r: 0.0,
-                    g: 1.0,
-                    b: 1.0,
-                    a: 0.5,
-                }
-            } else {
-                Color::TRANSPARENT
-            };
+        reachable_positions
+    }
+
+    pub fn update_hightlights(&self, character: &Character, state: &mut State) {
+        if let Some(reachable_positions) = &character.distance_map {
+            for (id, highlight_pos) in self.highlights.iter() {
+                let entity = state.scene.get_entity_mut(*id);
+                entity.properties.color = if reachable_positions.contains_key(&highlight_pos) {
+                    Color {
+                        r: 0.0,
+                        g: 1.0,
+                        b: 1.0,
+                        a: 0.5,
+                    }
+                } else {
+                    Color::TRANSPARENT
+                };
+            }
+        } else {
+            let movement = character.movement as i32;
+            for (id, highlight_pos) in self.highlights.iter() {
+                let entity = state.scene.get_entity_mut(*id);
+                entity.properties.color =
+                    if Grid::distance(character.position, *highlight_pos) <= movement {
+                        Color {
+                            r: 0.0,
+                            g: 1.0,
+                            b: 1.0,
+                            a: 0.5,
+                        }
+                    } else {
+                        Color::TRANSPARENT
+                    };
+            }
         }
     }
 }

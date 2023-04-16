@@ -163,8 +163,11 @@ impl Game for GameState {
         let highlight_prefab = state.scene.create_prefab(highlight_ids.0, highlight_ids.1);
 
         self.grid.init(highlight_prefab, state);
-        self.grid
-            .update_hightlights(&self.players[0].character, state);
+
+        // start player movement turn
+        let player = &mut self.players[0]; // todo: active player
+        player.character.update_distance_map(&self.grid);
+        self.grid.update_hightlights(&player.character, state);
     }
 
     fn update(&mut self, state: &mut State, _elapsed: f32) {
@@ -172,6 +175,7 @@ impl Game for GameState {
         if let Some(character_move) = player.update(&self.grid, state, _elapsed) {
             self.grid.occupancy.remove(&character_move.0);
             self.grid.occupancy.insert(character_move.1);
+            player.character.distance_map = None;
 
             for dummy in &mut self.dummys {
                 let delta = IVec2::new(1, 0);
@@ -185,6 +189,9 @@ impl Game for GameState {
                     dummy.flip_visual(state);
                 }
             }
+
+            // back to the players turn
+            player.character.update_distance_map(&self.grid);
             self.grid.update_hightlights(&player.character, state);
         }
     }

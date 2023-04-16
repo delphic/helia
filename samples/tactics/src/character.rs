@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use glam::*;
 use helia::{
     entity::{EntityId, InstanceProperties},
@@ -13,6 +15,7 @@ pub struct Character {
     pub last_position: IVec2,
     pub movement: u16,
     sprite: EntityId,
+    pub distance_map: Option<HashMap<IVec2, u16>>,
 }
 
 impl Character {
@@ -37,11 +40,20 @@ impl Character {
             last_position: position,
             sprite,
             movement: 3,
+            distance_map: None,
         }
+    }
+
+    pub fn update_distance_map(&mut self, grid: &Grid) {
+        self.distance_map = Some(grid.generate_distance_map(self));
     }
 
     pub fn is_move_valid(&self, grid: &Grid, delta: IVec2) -> bool {
         let target_position = self.position + delta;
+        if let Some(map) = &self.distance_map {
+            return map.contains_key(&target_position);
+        }
+
         grid.is_in_bounds(target_position)
             && (target_position == self.last_position || !grid.occupancy.contains(&target_position))
             && Grid::distance(target_position, self.last_position) <= self.movement as i32
