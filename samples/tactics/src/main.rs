@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
@@ -24,28 +26,31 @@ const QUAD_UVS: &[Vec2] = &[
 ];
 const QUAD_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
-fn sized_quad_positions(width: f32, height: f32) -> Vec<Vec3> {
+fn sized_quad_positions(width: f32, height: f32, offset: Vec2) -> Vec<Vec3> {
     QUAD_POSITIONS
         .iter()
-        .map(|v| Vec3::new(width * v.x, height * v.y, v.z))
+        .map(|v| Vec3::new(width * v.x + offset.x, height * v.y + offset.y, v.z))
         .collect::<Vec<Vec3>>()
 }
+// TODO: Should we perhaps just have a single global quad mesh in Helia and use scale instead?
 
 pub struct Grid {
     size: IVec2,
     base_offset: Vec3,
     highlights: Vec<(EntityId, IVec2)>,
+    occupancy: HashSet<IVec2>,
 }
 
 impl Grid {
     fn new() -> Self {
         let size = IVec2::new(12, 3);
-        let base_offset = Vec3::new(-400.0, 16.0, 32.0); // dependent on bg sprite currently
+        let base_offset = Vec3::new(-400.0, -32.0, 32.0); // dependent on bg sprite currently
 
         Self {
             size,
             base_offset,
             highlights: Vec::new(),
+            occupancy: HashSet::new(),
         }
     }
 
@@ -58,7 +63,7 @@ impl Grid {
                 InstanceProperties::builder()
                     .with_translation(
                         self.get_translation_for_position(position)
-                            - 48.0 * Vec3::Y
+                            - 16.0 * Vec3::Y
                             - 32.0 * Vec3::Z,
                     ) // could sort this y offset with better anchoring and base offset
                     .with_color(Color::TRANSPARENT) // Visibility rather than transparent would be nice
@@ -114,7 +119,7 @@ impl Character {
         position: IVec2,
         mesh_id: MeshId,
         material_id: MaterialId,
-        grid: &Grid,
+        grid: &mut Grid,
         state: &mut State,
     ) -> Self {
         let position = position.clamp(IVec2::ZERO, grid.size);
@@ -125,6 +130,7 @@ impl Character {
                 .with_translation(grid.get_translation_for_position(position))
                 .build(),
         );
+        grid.occupancy.insert(position);
         Self {
             position,
             last_position: position,
@@ -136,57 +142,90 @@ impl Character {
     pub fn is_move_valid(&self, grid: &Grid, delta: IVec2) -> bool {
         let target_position = self.position + delta;
         grid.is_in_bounds(target_position)
+            && (target_position == self.last_position || !grid.occupancy.contains(&target_position))
             && Grid::distance(target_position, self.last_position) <= self.movement as i32
+    }
+
+    pub fn perform_move(&mut self, delta: IVec2, grid: &Grid, state: &mut State) {
+        self.position += delta;
+        let entity = state.scene.get_entity_mut(self.sprite);
+        entity.properties.transform =
+            Mat4::from_translation(grid.get_translation_for_position(self.position));
+    }
+
+    pub fn flip_visual(&self, state: &mut State) {
+        let entity = state.scene.get_entity_mut(self.sprite);
+        entity.properties.uv_scale = Vec2::new(
+            -1.0 * entity.properties.uv_scale.x,
+            entity.properties.uv_scale.y,
+        );
+        entity.properties.uv_offset = if entity.properties.uv_scale.x.is_sign_negative() {
+            Vec2::new(1.0, 0.0)
+        } else {
+            Vec2::ZERO
+        };
     }
 }
 
 pub struct Player {
     character: Character,
+    facing: IVec2,
 }
 
 impl Player {
-    fn update(&mut self, grid: &Grid, state: &mut State, _elapsed: f32) {
+    fn update(&mut self, grid: &Grid, state: &mut State, _elapsed: f32) -> Option<(IVec2, IVec2)> {
         let character = &mut self.character;
         let mut delta = IVec2::ZERO;
+        let mut requested_delta = IVec2::ZERO;
         if state.input.key_down(VirtualKeyCode::Left) {
             if character.is_move_valid(grid, IVec2::NEG_X) {
                 delta += IVec2::NEG_X;
             }
+            requested_delta += IVec2::NEG_X;
         }
         if state.input.key_down(VirtualKeyCode::Right) {
             if character.is_move_valid(grid, IVec2::X) {
                 delta += IVec2::X;
             }
+            requested_delta += IVec2::X;
         }
 
         if state.input.key_down(VirtualKeyCode::Up) {
             if character.is_move_valid(grid, IVec2::NEG_Y) {
                 delta += IVec2::NEG_Y;
             }
+            requested_delta += IVec2::NEG_Y;
         }
         if state.input.key_down(VirtualKeyCode::Down) {
             if character.is_move_valid(grid, IVec2::Y) {
                 delta += IVec2::Y;
             }
+            requested_delta += IVec2::Y;
+        }
+
+        if requested_delta.x != 0 && requested_delta.x.signum() != self.facing.x {
+            character.flip_visual(state);
+            self.facing.x = requested_delta.x.signum();
         }
 
         if delta != IVec2::ZERO {
-            character.position += delta;
-            let entity = state.scene.get_entity_mut(character.sprite);
-            entity.properties.transform =
-                Mat4::from_translation(grid.get_translation_for_position(character.position));
+            character.perform_move(delta, grid, state);
         }
 
         if state.input.key_down(VirtualKeyCode::Z) {
             // this would change battle state if we had any other states
-            character.last_position = character.position;
+            let character_update = (character.last_position, character.position);
             grid.update_hightlights(character.position, character.movement as i32, state);
+            character.last_position = character.position;
+            return Some(character_update);
         }
+        None
     }
 }
 
 pub struct GameState {
     player: Option<Player>,
+    dummys: Vec<Character>,
     grid: Grid,
 }
 
@@ -195,6 +234,7 @@ impl GameState {
         Self {
             player: None,
             grid: Grid::new(),
+            dummys: Vec::new(),
         }
     }
 }
@@ -205,6 +245,7 @@ impl Game for GameState {
             label: &str,
             width: f32,
             height: f32,
+            offset: Vec2,
             sprite_bytes: &[u8],
             state: &mut State,
         ) -> (MeshId, MaterialId) {
@@ -214,7 +255,7 @@ impl Game for GameState {
             let material_id = state.resources.materials.insert(material);
 
             let quad_mesh = Mesh::from_arrays(
-                &sized_quad_positions(width, height).as_slice(),
+                &sized_quad_positions(width, height, offset).as_slice(),
                 QUAD_UVS,
                 QUAD_INDICES,
                 &state.device,
@@ -227,6 +268,7 @@ impl Game for GameState {
             "helia",
             96.0,
             96.0,
+            Vec2::new(0.0, 48.0),
             include_bytes!("../assets/helia.png"),
             state,
         );
@@ -234,6 +276,7 @@ impl Game for GameState {
             "bg",
             960.0,
             480.0,
+            Vec2::ZERO,
             include_bytes!("../assets/placeholder-bg.png"),
             state,
         );
@@ -241,7 +284,16 @@ impl Game for GameState {
             "sq",
             96.0,
             32.0,
+            Vec2::new(0.0, 16.0),
             include_bytes!("../assets/grid_sq.png"),
+            state,
+        );
+        let dummy_ids = build_sprite_resources(
+            "dummy",
+            64.0,
+            64.0,
+            Vec2::new(0.0, 32.0),
+            include_bytes!("../assets/dummy.png"),
             state,
         );
 
@@ -264,13 +316,14 @@ impl Game for GameState {
             IVec2::new(8, 1),
             helia_sprite_ids.0,
             helia_sprite_ids.1,
-            &self.grid,
+            &mut self.grid,
             state,
         );
         let (player_position, player_movement) =
             (player_character.position, player_character.movement);
         self.player = Some(Player {
             character: player_character,
+            facing: IVec2::new(-1, 0),
         });
 
         state.scene.add_entity(
@@ -281,6 +334,17 @@ impl Game for GameState {
                 .build(),
         );
 
+        for i in 0..3 {
+            let dummy_character = Character::create_on_grid(
+                IVec2::new(4 + i % 2, i),
+                dummy_ids.0,
+                dummy_ids.1,
+                &mut self.grid,
+                state,
+            );
+            self.dummys.push(dummy_character);
+        }
+
         let highlight_prefab = state.scene.create_prefab(highlight_ids.0, highlight_ids.1);
 
         self.grid.init(highlight_prefab, state);
@@ -290,7 +354,23 @@ impl Game for GameState {
 
     fn update(&mut self, state: &mut State, _elapsed: f32) {
         if let Some(player) = &mut self.player {
-            player.update(&self.grid, state, _elapsed);
+            if let Some(character_move) = player.update(&self.grid, state, _elapsed) {
+                self.grid.occupancy.remove(&character_move.0);
+                self.grid.occupancy.insert(character_move.1);
+
+                for dummy in &mut self.dummys {
+                    let delta = IVec2::new(1, 0);
+                    if dummy.is_move_valid(&self.grid, delta) {
+                        dummy.perform_move(delta, &self.grid, state);
+                        self.grid.occupancy.remove(&dummy.last_position);
+                        self.grid.occupancy.insert(dummy.position);
+                        dummy.last_position = dummy.position;
+
+                        // flip, for fun
+                        dummy.flip_visual(state);
+                    }
+                }
+            }
         }
     }
 
