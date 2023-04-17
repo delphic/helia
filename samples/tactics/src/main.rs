@@ -1,197 +1,81 @@
+mod battle_stage;
 mod character;
 mod grid;
 mod player;
+mod utils;
 
-use character::*;
-use grid::*;
-use player::*;
+use std::collections::HashMap;
+
+use battle_stage::*;
 
 use glam::*;
-use helia::{
-    camera::{Camera, OrthographicSize},
-    entity::*,
-    material::{Material, MaterialId},
-    mesh::{Mesh, MeshId},
-    texture::Texture,
-    *,
-};
+use helia::{camera::*, material::MaterialId, mesh::MeshId, *};
 
-const QUAD_POSITIONS: &[Vec3] = &[
-    Vec3::new(-0.5, -0.5, 0.0),
-    Vec3::new(0.5, -0.5, 0.0),
-    Vec3::new(0.5, 0.5, 0.0),
-    Vec3::new(-0.5, 0.5, 0.0),
-];
-const QUAD_UVS: &[Vec2] = &[
-    Vec2::new(0.0, 1.0),
-    Vec2::new(1.0, 1.0),
-    Vec2::new(1.0, 0.0),
-    Vec2::new(0.0, 0.0),
-];
-const QUAD_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
-
-fn sized_quad_positions(width: f32, height: f32, offset: Vec2) -> Vec<Vec3> {
-    QUAD_POSITIONS
-        .iter()
-        .map(|v| Vec3::new(width * v.x + offset.x, height * v.y + offset.y, v.z))
-        .collect::<Vec<Vec3>>()
-}
-// TODO: Should we perhaps just have a single global quad mesh in Helia and use scale instead?
-
-fn build_sprite_resources(
-    label: &str,
-    width: f32,
-    height: f32,
-    offset: Vec2,
-    sprite_bytes: &[u8],
-    state: &mut State,
-) -> (MeshId, MaterialId) {
-    let texture = Texture::from_bytes(&state.device, &state.queue, sprite_bytes, label).unwrap();
-    let material = Material::new(state.shaders.sprite, texture, &state);
-    let material_id = state.resources.materials.insert(material);
-
-    let quad_mesh = Mesh::from_arrays(
-        &sized_quad_positions(width, height, offset).as_slice(),
-        QUAD_UVS,
-        QUAD_INDICES,
-        &state.device,
-    );
-    let mesh_id = state.resources.meshes.insert(quad_mesh);
-    (mesh_id, material_id)
-}
+type GameResources = HashMap<String, (MeshId, MaterialId)>;
 
 enum Stage {
     Init,
     Battle { state: BattleState },
 }
 
-pub struct BattleState {
-    players: Vec<Player>,
-    dummys: Vec<Character>,
-    grid: Grid,
-}
-
-impl BattleState {
-    fn new(state: &mut State) -> Self {
-        let helia_sprite_ids = build_sprite_resources(
-            "helia",
-            96.0,
-            96.0,
-            Vec2::new(0.0, 48.0),
-            include_bytes!("../assets/helia.png"),
-            state,
-        );
-        let bg_sprite_ids = build_sprite_resources(
-            "bg",
-            960.0,
-            480.0,
-            Vec2::ZERO,
-            include_bytes!("../assets/placeholder-bg.png"),
-            state,
-        );
-        let highlight_ids = build_sprite_resources(
-            "sq",
-            96.0,
-            32.0,
-            Vec2::new(0.0, 16.0),
-            include_bytes!("../assets/grid_sq.png"),
-            state,
-        );
-        let dummy_ids = build_sprite_resources(
-            "dummy",
-            64.0,
-            64.0,
-            Vec2::new(0.0, 32.0),
-            include_bytes!("../assets/dummy.png"),
-            state,
-        );
-
-        let mut grid = Grid::new();
-        let mut players = Vec::new();
-        let mut dummys = Vec::new();
-
-        let helia_character = Character::create_on_grid(
-            IVec2::new(8, 1),
-            helia_sprite_ids.0,
-            helia_sprite_ids.1,
-            &mut grid,
-            state,
-        );
-        players.push(Player {
-            character: helia_character,
-            facing: IVec2::new(-1, 0),
-        });
-
-        state.scene.add_entity(
-            bg_sprite_ids.0,
-            bg_sprite_ids.1,
-            InstanceProperties::builder()
-                .with_translation(Vec3::new(0.0, 0.0, -100.0))
-                .build(),
-        );
-
-        for i in 0..3 {
-            let dummy_character = Character::create_on_grid(
-                IVec2::new(4 + i % 2, i),
-                dummy_ids.0,
-                dummy_ids.1,
-                &mut grid,
-                state,
-            );
-            dummys.push(dummy_character);
-        }
-
-        let highlight_prefab = state.scene.create_prefab(highlight_ids.0, highlight_ids.1);
-
-        grid.init(highlight_prefab, state);
-
-        Self {
-            grid,
-            players,
-            dummys,
-        }
-    }
-
-    fn enter(&mut self, state: &mut State) {
-        let player = &mut self.players[0]; // todo: active player
-        player.character.start_turn(&self.grid);
-        self.grid.update_hightlights(&player.character, state);
-    }
-
-    fn update(&mut self, state: &mut State, elapsed: f32) {
-        let player = &mut self.players[0]; // todo: active player
-        if let Some(character_move) = player.update(&self.grid, state, elapsed) {
-            self.grid.occupancy.remove(&character_move.0);
-            self.grid.occupancy.insert(character_move.1);
-
-            for dummy in &mut self.dummys {
-                dummy.start_turn(&self.grid);
-                let delta = IVec2::new(1, 0);
-                if dummy.is_move_valid(delta) {
-                    dummy.perform_move(delta, &self.grid, state);
-                    self.grid.occupancy.remove(&dummy.last_position);
-                    self.grid.occupancy.insert(dummy.position);
-                    dummy.last_position = dummy.position;
-
-                    // flip, for fun
-                    dummy.flip_visual(state);
-                }
-            }
-
-            // back to the players turn
-            player.character.start_turn(&self.grid);
-            self.grid.update_hightlights(&player.character, state);
-        }
-    }
-}
-
 pub struct GameState {
     stage: Stage,
+    resources: GameResources,
 }
 
 impl GameState {
     fn new() -> Self {
-        Self { stage: Stage::Init }
+        Self {
+            stage: Stage::Init,
+            resources: GameResources::new(),
+        }
+    }
+
+    fn load_resources(&mut self, state: &mut State) {
+        self.resources.insert(
+            "helia".to_string(),
+            utils::build_sprite_resources(
+                "helia",
+                96.0,
+                96.0,
+                Vec2::new(0.0, 48.0),
+                include_bytes!("../assets/helia.png"),
+                state,
+            ),
+        );
+        self.resources.insert(
+            "bg".to_string(),
+            utils::build_sprite_resources(
+                "bg",
+                960.0,
+                480.0,
+                Vec2::ZERO,
+                include_bytes!("../assets/placeholder-bg.png"),
+                state,
+            ),
+        );
+        self.resources.insert(
+            "highlight".to_string(),
+            utils::build_sprite_resources(
+                "sq",
+                96.0,
+                32.0,
+                Vec2::new(0.0, 16.0),
+                include_bytes!("../assets/grid_sq.png"),
+                state,
+            ),
+        );
+        self.resources.insert(
+            "dummy".to_string(),
+            utils::build_sprite_resources(
+                "dummy",
+                64.0,
+                64.0,
+                Vec2::new(0.0, 32.0),
+                include_bytes!("../assets/dummy.png"),
+                state,
+            ),
+        );
     }
 }
 
@@ -210,9 +94,11 @@ impl Game for GameState {
             size: OrthographicSize::from_size(state.size),
         };
 
+        self.load_resources(state);
+
         state.scene.camera = camera;
 
-        let mut battle_state = BattleState::new(state);
+        let mut battle_state = BattleState::new(&self.resources, state);
 
         battle_state.enter(state);
         self.stage = Stage::Battle {
