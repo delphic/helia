@@ -8,12 +8,7 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn update(
-        &mut self,
-        grid: &Grid,
-        state: &mut State,
-        _elapsed: f32,
-    ) -> Option<(IVec2, IVec2)> {
+    pub fn run_move_stage(&mut self, grid: &Grid, state: &mut State) -> Option<(IVec2, IVec2)> {
         let character = &mut self.character;
         let mut delta = IVec2::ZERO;
         let mut requested_delta = IVec2::ZERO;

@@ -4,12 +4,21 @@ use crate::player::*;
 use crate::GameResources;
 
 use glam::*;
+use helia::input::VirtualKeyCode;
 use helia::{entity::*, *};
+
+pub enum BattleStage {
+    PlayerMove,
+    PlayerAction,
+    EnemyTurn,
+}
 
 pub struct BattleState {
     players: Vec<Player>,
     dummys: Vec<Character>,
     grid: Grid,
+    stage: BattleStage,
+    active_player_index: usize,
 }
 
 impl BattleState {
@@ -62,38 +71,58 @@ impl BattleState {
             grid,
             players,
             dummys,
+            stage: BattleStage::PlayerMove,
+            active_player_index: 0,
         }
     }
 
     pub fn enter(&mut self, state: &mut State) {
-        let player = &mut self.players[0]; // todo: active player
+        let player = &mut self.players[self.active_player_index];
         player.character.start_turn(&self.grid);
         self.grid.update_hightlights(&player.character, state);
     }
 
-    pub fn update(&mut self, state: &mut State, elapsed: f32) {
-        let player = &mut self.players[0]; // todo: active player
-        if let Some(character_move) = player.update(&self.grid, state, elapsed) {
-            self.grid.occupancy.remove(&character_move.0);
-            self.grid.occupancy.insert(character_move.1);
+    pub fn update(&mut self, state: &mut State, _elapsed: f32) {
+        match self.stage {
+            BattleStage::PlayerMove => {
+                let player = &mut self.players[self.active_player_index];
+                if let Some(character_move) = player.run_move_stage(&self.grid, state) {
+                    self.grid.occupancy.remove(&character_move.0);
+                    self.grid.occupancy.insert(character_move.1);
 
-            for dummy in &mut self.dummys {
-                dummy.start_turn(&self.grid);
-                let delta = IVec2::new(1, 0);
-                if dummy.is_move_valid(delta) {
-                    dummy.perform_move(delta, &self.grid, state);
-                    self.grid.occupancy.remove(&dummy.last_position);
-                    self.grid.occupancy.insert(dummy.position);
-                    dummy.last_position = dummy.position;
-
-                    // flip, for fun
-                    dummy.flip_visual(state);
+                    self.stage = BattleStage::PlayerAction;
                 }
             }
+            BattleStage::PlayerAction => {
+                if state.input.key_down(VirtualKeyCode::X) {
+                    self.stage = BattleStage::PlayerMove;
+                }
+                if state.input.key_down(VirtualKeyCode::Z) {
+                    // todo: select and perform player ability
+                    self.stage = BattleStage::EnemyTurn;
+                }
+            }
+            BattleStage::EnemyTurn => {
+                for dummy in &mut self.dummys {
+                    dummy.start_turn(&self.grid);
+                    let delta = IVec2::new(1, 0);
+                    if dummy.is_move_valid(delta) {
+                        dummy.perform_move(delta, &self.grid, state);
+                        self.grid.occupancy.remove(&dummy.last_position);
+                        self.grid.occupancy.insert(dummy.position);
+                        dummy.last_position = dummy.position;
 
-            // back to the players turn
-            player.character.start_turn(&self.grid);
-            self.grid.update_hightlights(&player.character, state);
+                        // flip, for fun
+                        dummy.flip_visual(state);
+                    }
+                }
+
+                // back to the players turn
+                let player = &mut self.players[self.active_player_index];
+                player.character.start_turn(&self.grid);
+                self.grid.update_hightlights(&player.character, state);
+                self.stage = BattleStage::PlayerMove;
+            }
         }
     }
 }
