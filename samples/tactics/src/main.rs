@@ -166,7 +166,7 @@ impl Game for GameState {
 
         // start player movement turn
         let player = &mut self.players[0]; // todo: active player
-        player.character.update_distance_map(&self.grid);
+        player.character.start_turn(&self.grid);
         self.grid.update_hightlights(&player.character, state);
     }
 
@@ -175,11 +175,11 @@ impl Game for GameState {
         if let Some(character_move) = player.update(&self.grid, state, _elapsed) {
             self.grid.occupancy.remove(&character_move.0);
             self.grid.occupancy.insert(character_move.1);
-            player.character.distance_map = None;
 
             for dummy in &mut self.dummys {
+                dummy.start_turn(&self.grid);
                 let delta = IVec2::new(1, 0);
-                if dummy.is_move_valid(&self.grid, delta) {
+                if dummy.is_move_valid(delta) {
                     dummy.perform_move(delta, &self.grid, state);
                     self.grid.occupancy.remove(&dummy.last_position);
                     self.grid.occupancy.insert(dummy.position);
@@ -191,7 +191,7 @@ impl Game for GameState {
             }
 
             // back to the players turn
-            player.character.update_distance_map(&self.grid);
+            player.character.start_turn(&self.grid);
             self.grid.update_hightlights(&player.character, state);
         }
     }

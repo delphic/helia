@@ -60,11 +60,14 @@ impl Grid {
         self.base_offset + Vec3::new(64.0 * x + 32.0 * y, -32.0 * y, 16.0 * y)
     }
 
+    #[allow(dead_code)]
     pub fn distance(a: IVec2, b: IVec2) -> i32 {
         (a.x - b.x).abs() + (a.y - b.y).abs()
     }
 
     pub fn generate_distance_map(&self, character: &Character) -> HashMap<IVec2, u16> {
+        // When we want to support flying units should simply iterate over
+        // grid by manhatten distance, checking occupancy
         let mut position_queue = VecDeque::new();
         let mut position_set: HashSet<IVec2> = HashSet::new();
         let mut reachable_positions: HashMap<IVec2, u16> = HashMap::new();
@@ -99,36 +102,19 @@ impl Grid {
     }
 
     pub fn update_hightlights(&self, character: &Character, state: &mut State) {
-        if let Some(reachable_positions) = &character.distance_map {
-            for (id, highlight_pos) in self.highlights.iter() {
-                let entity = state.scene.get_entity_mut(*id);
-                entity.properties.color = if reachable_positions.contains_key(&highlight_pos) {
-                    Color {
-                        r: 0.0,
-                        g: 1.0,
-                        b: 1.0,
-                        a: 0.5,
-                    }
-                } else {
-                    Color::TRANSPARENT
-                };
-            }
-        } else {
-            let movement = character.movement as i32;
-            for (id, highlight_pos) in self.highlights.iter() {
-                let entity = state.scene.get_entity_mut(*id);
-                entity.properties.color =
-                    if Grid::distance(character.position, *highlight_pos) <= movement {
-                        Color {
-                            r: 0.0,
-                            g: 1.0,
-                            b: 1.0,
-                            a: 0.5,
-                        }
-                    } else {
-                        Color::TRANSPARENT
-                    };
-            }
+        let reachable_positions = character.get_reachable_positions();
+        for (id, highlight_pos) in self.highlights.iter() {
+            let entity = state.scene.get_entity_mut(*id);
+            entity.properties.color = if reachable_positions.contains_key(&highlight_pos) {
+                Color {
+                    r: 0.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 0.5,
+                }
+            } else {
+                Color::TRANSPARENT
+            };
         }
     }
 }

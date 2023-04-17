@@ -18,26 +18,26 @@ impl Player {
         let mut delta = IVec2::ZERO;
         let mut requested_delta = IVec2::ZERO;
         if state.input.key_down(VirtualKeyCode::Left) {
-            if character.is_move_valid(grid, IVec2::NEG_X) {
+            if character.is_move_valid(IVec2::NEG_X) {
                 delta += IVec2::NEG_X;
             }
             requested_delta += IVec2::NEG_X;
         }
         if state.input.key_down(VirtualKeyCode::Right) {
-            if character.is_move_valid(grid, IVec2::X) {
+            if character.is_move_valid(IVec2::X) {
                 delta += IVec2::X;
             }
             requested_delta += IVec2::X;
         }
 
         if state.input.key_down(VirtualKeyCode::Up) {
-            if character.is_move_valid(grid, IVec2::NEG_Y) {
+            if character.is_move_valid(IVec2::NEG_Y) {
                 delta += IVec2::NEG_Y;
             }
             requested_delta += IVec2::NEG_Y;
         }
         if state.input.key_down(VirtualKeyCode::Down) {
-            if character.is_move_valid(grid, IVec2::Y) {
+            if character.is_move_valid(IVec2::Y) {
                 delta += IVec2::Y;
             }
             requested_delta += IVec2::Y;

@@ -15,7 +15,7 @@ pub struct Character {
     pub last_position: IVec2,
     pub movement: u16,
     sprite: EntityId,
-    pub distance_map: Option<HashMap<IVec2, u16>>,
+    distance_map: HashMap<IVec2, u16>,
 }
 
 impl Character {
@@ -40,23 +40,20 @@ impl Character {
             last_position: position,
             sprite,
             movement: 3,
-            distance_map: None,
+            distance_map: HashMap::new(),
         }
     }
 
-    pub fn update_distance_map(&mut self, grid: &Grid) {
-        self.distance_map = Some(grid.generate_distance_map(self));
+    pub fn start_turn(&mut self, grid: &Grid) {
+        self.distance_map = grid.generate_distance_map(self);
     }
 
-    pub fn is_move_valid(&self, grid: &Grid, delta: IVec2) -> bool {
-        let target_position = self.position + delta;
-        if let Some(map) = &self.distance_map {
-            return map.contains_key(&target_position);
-        }
+    pub fn get_reachable_positions(&self) -> &HashMap<IVec2, u16> {
+        &self.distance_map
+    }
 
-        grid.is_in_bounds(target_position)
-            && (target_position == self.last_position || !grid.occupancy.contains(&target_position))
-            && Grid::distance(target_position, self.last_position) <= self.movement as i32
+    pub fn is_move_valid(&self, delta: IVec2) -> bool {
+        self.distance_map.contains_key(&(self.position + delta))
     }
 
     pub fn perform_move(&mut self, delta: IVec2, grid: &Grid, state: &mut State) {
