@@ -38,49 +38,41 @@ fn sized_quad_positions(width: f32, height: f32, offset: Vec2) -> Vec<Vec3> {
 }
 // TODO: Should we perhaps just have a single global quad mesh in Helia and use scale instead?
 
-pub struct GameState {
+fn build_sprite_resources(
+    label: &str,
+    width: f32,
+    height: f32,
+    offset: Vec2,
+    sprite_bytes: &[u8],
+    state: &mut State,
+) -> (MeshId, MaterialId) {
+    let texture = Texture::from_bytes(&state.device, &state.queue, sprite_bytes, label).unwrap();
+    let material = Material::new(state.shaders.sprite, texture, &state);
+    let material_id = state.resources.materials.insert(material);
+
+    let quad_mesh = Mesh::from_arrays(
+        &sized_quad_positions(width, height, offset).as_slice(),
+        QUAD_UVS,
+        QUAD_INDICES,
+        &state.device,
+    );
+    let mesh_id = state.resources.meshes.insert(quad_mesh);
+    (mesh_id, material_id)
+}
+
+enum Stage {
+    Init,
+    Battle { state: BattleState },
+}
+
+pub struct BattleState {
     players: Vec<Player>,
     dummys: Vec<Character>,
     grid: Grid,
 }
-// ^^ TODO: Since enum of current state, which has the information for each state
-// Initial state is loading
 
-impl GameState {
-    fn new() -> Self {
-        Self {
-            players: Vec::new(),
-            dummys: Vec::new(),
-            grid: Grid::new(),
-        }
-    }
-}
-
-impl Game for GameState {
-    fn init(&mut self, state: &mut State) {
-        fn build_sprite_resources(
-            label: &str,
-            width: f32,
-            height: f32,
-            offset: Vec2,
-            sprite_bytes: &[u8],
-            state: &mut State,
-        ) -> (MeshId, MaterialId) {
-            let texture =
-                Texture::from_bytes(&state.device, &state.queue, sprite_bytes, label).unwrap();
-            let material = Material::new(state.shaders.sprite, texture, &state);
-            let material_id = state.resources.materials.insert(material);
-
-            let quad_mesh = Mesh::from_arrays(
-                &sized_quad_positions(width, height, offset).as_slice(),
-                QUAD_UVS,
-                QUAD_INDICES,
-                &state.device,
-            );
-            let mesh_id = state.resources.meshes.insert(quad_mesh);
-            (mesh_id, material_id)
-        }
-
+impl BattleState {
+    fn new(state: &mut State) -> Self {
         let helia_sprite_ids = build_sprite_resources(
             "helia",
             96.0,
@@ -114,29 +106,18 @@ impl Game for GameState {
             state,
         );
 
-        let camera = Camera {
-            eye: (0.0, 0.0, 2.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
-            up: Vec3::Y,
-            aspect_ratio: state.size.width as f32 / state.size.height as f32,
-            fov: 60.0 * std::f32::consts::PI / 180.0,
-            near: 0.01,
-            far: 1000.0,
-            clear_color: Color::BLACK,
-            projection: camera::Projection::Orthographic,
-            size: OrthographicSize::from_size(state.size),
-        };
-
-        state.scene.camera = camera;
+        let mut grid = Grid::new();
+        let mut players = Vec::new();
+        let mut dummys = Vec::new();
 
         let helia_character = Character::create_on_grid(
             IVec2::new(8, 1),
             helia_sprite_ids.0,
             helia_sprite_ids.1,
-            &mut self.grid,
+            &mut grid,
             state,
         );
-        self.players.push(Player {
+        players.push(Player {
             character: helia_character,
             facing: IVec2::new(-1, 0),
         });
@@ -154,25 +135,32 @@ impl Game for GameState {
                 IVec2::new(4 + i % 2, i),
                 dummy_ids.0,
                 dummy_ids.1,
-                &mut self.grid,
+                &mut grid,
                 state,
             );
-            self.dummys.push(dummy_character);
+            dummys.push(dummy_character);
         }
 
         let highlight_prefab = state.scene.create_prefab(highlight_ids.0, highlight_ids.1);
 
-        self.grid.init(highlight_prefab, state);
+        grid.init(highlight_prefab, state);
 
-        // start player movement turn
+        Self {
+            grid,
+            players,
+            dummys,
+        }
+    }
+
+    fn enter(&mut self, state: &mut State) {
         let player = &mut self.players[0]; // todo: active player
         player.character.start_turn(&self.grid);
         self.grid.update_hightlights(&player.character, state);
     }
 
-    fn update(&mut self, state: &mut State, _elapsed: f32) {
+    fn update(&mut self, state: &mut State, elapsed: f32) {
         let player = &mut self.players[0]; // todo: active player
-        if let Some(character_move) = player.update(&self.grid, state, _elapsed) {
+        if let Some(character_move) = player.update(&self.grid, state, elapsed) {
             self.grid.occupancy.remove(&character_move.0);
             self.grid.occupancy.insert(character_move.1);
 
@@ -193,6 +181,51 @@ impl Game for GameState {
             // back to the players turn
             player.character.start_turn(&self.grid);
             self.grid.update_hightlights(&player.character, state);
+        }
+    }
+}
+
+pub struct GameState {
+    stage: Stage,
+}
+
+impl GameState {
+    fn new() -> Self {
+        Self { stage: Stage::Init }
+    }
+}
+
+impl Game for GameState {
+    fn init(&mut self, state: &mut State) {
+        let camera = Camera {
+            eye: (0.0, 0.0, 2.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
+            up: Vec3::Y,
+            aspect_ratio: state.size.width as f32 / state.size.height as f32,
+            fov: 60.0 * std::f32::consts::PI / 180.0,
+            near: 0.01,
+            far: 1000.0,
+            clear_color: Color::BLACK,
+            projection: camera::Projection::Orthographic,
+            size: OrthographicSize::from_size(state.size),
+        };
+
+        state.scene.camera = camera;
+
+        let mut battle_state = BattleState::new(state);
+
+        battle_state.enter(state);
+        self.stage = Stage::Battle {
+            state: battle_state,
+        };
+    }
+
+    fn update(&mut self, state: &mut State, elapsed: f32) {
+        match &mut self.stage {
+            Stage::Init => {}
+            Stage::Battle {
+                state: battle_state,
+            } => battle_state.update(state, elapsed),
         }
     }
 
