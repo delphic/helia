@@ -32,6 +32,9 @@ impl GameState {
     }
 
     fn load_resources(&mut self, state: &mut State) {
+        // just keeping all resources in memory for now
+        // will probably want a way to clear and reset
+        // resources in a larger game though
         self.resources.insert(
             "helia".to_string(),
             utils::build_sprite_resources(
