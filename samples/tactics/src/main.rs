@@ -1,4 +1,4 @@
-mod battle_stage;
+mod battle_state;
 mod character;
 mod grid;
 mod player;
@@ -6,7 +6,7 @@ mod utils;
 
 use std::collections::HashMap;
 
-use battle_stage::*;
+use battle_state::*;
 
 use glam::*;
 use helia::{camera::*, material::MaterialId, mesh::MeshId, *};
