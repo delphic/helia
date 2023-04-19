@@ -79,7 +79,7 @@ impl BattleState {
     pub fn enter(&mut self, state: &mut State) {
         let player = &mut self.players[self.active_player_index];
         player.character.start_turn(&self.grid);
-        self.grid.update_hightlights(&player.character, state);
+        self.grid.set_movement_highlights(&player.character, state);
     }
 
     pub fn update(&mut self, state: &mut State, _elapsed: f32) {
@@ -90,15 +90,24 @@ impl BattleState {
                     self.grid.occupancy.remove(&character_move.0);
                     self.grid.occupancy.insert(character_move.1);
 
+                    self.grid.clear_highlights(state);
                     self.stage = BattleStage::PlayerAction;
+                    // this is essentially selecting the "skip turn" ability
+                    self.grid.set_highlight(player.character.position, Color::RED, state);
                 }
             }
             BattleStage::PlayerAction => {
                 if state.input.key_down(VirtualKeyCode::X) {
                     self.stage = BattleStage::PlayerMove;
+                    let player_character = &self.players[self.active_player_index].character;
+                    self.grid.set_movement_highlights(player_character, state);
                 }
                 if state.input.key_down(VirtualKeyCode::Z) {
                     // todo: select and perform player ability
+                    // need another stage really `PlayerActionMenu`
+                    // and then `PlayerAbilityTargeting { ability }`
+                    // followed by a stage which executes the ability
+                    // before finally moving onto the enemy turn
                     self.stage = BattleStage::EnemyTurn;
                 }
             }
@@ -116,11 +125,12 @@ impl BattleState {
                         dummy.flip_visual(state);
                     }
                 }
+                // todo: animate, coroutines would be nice
 
                 // back to the players turn
                 let player = &mut self.players[self.active_player_index];
                 player.character.start_turn(&self.grid);
-                self.grid.update_hightlights(&player.character, state);
+                self.grid.set_movement_highlights(&player.character, state);
                 self.stage = BattleStage::PlayerMove;
             }
         }

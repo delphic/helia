@@ -101,7 +101,7 @@ impl Grid {
         reachable_positions
     }
 
-    pub fn update_hightlights(&self, character: &Character, state: &mut State) {
+    pub fn set_movement_highlights(&self, character: &Character, state: &mut State) {
         let reachable_positions = character.get_reachable_positions();
         for (id, highlight_pos) in self.highlights.iter() {
             let entity = state.scene.get_entity_mut(*id);
@@ -115,6 +115,22 @@ impl Grid {
             } else {
                 Color::TRANSPARENT
             };
+        }
+    }
+
+    pub fn set_highlight(&self, pos: IVec2, color: Color, state: &mut State) {
+        if self.is_in_bounds(pos) {
+            let index = (pos.x + pos.y * self.size.x) as usize;
+            let id = self.highlights[index].0;
+            let entity = state.scene.get_entity_mut(id);
+            entity.properties.color = color;
+        }        
+    }
+
+    pub fn clear_highlights(&self, state: &mut State) {
+        for (id, _) in self.highlights.iter() {
+            let entity = state.scene.get_entity_mut(*id);
+            entity.properties.color = Color::TRANSPARENT;
         }
     }
 }
