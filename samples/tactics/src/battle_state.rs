@@ -5,6 +5,8 @@ use crate::GameResources;
 
 use glam::*;
 use helia::input::VirtualKeyCode;
+use helia::material::MaterialId;
+use helia::mesh::MeshId;
 use helia::{entity::*, *};
 
 pub enum BattleStage {
@@ -51,6 +53,78 @@ impl BattleState {
                 .with_translation(Vec3::new(0.0, 0.0, -100.0))
                 .build(),
         );
+
+
+        struct FontAtlas {
+            mesh_id: MeshId,
+            material_id: MaterialId,
+            char_map: String,
+            tile_width: u16,
+            tile_height: u16,
+            columns: u16,
+            rows: u16,
+        }
+
+        struct TextMesh {
+            text: String,
+            entities: Vec<EntityId>,
+        }
+
+        impl TextMesh {
+            fn new(text: String, atlas: FontAtlas, scale: f32, state: &mut State) -> Self {
+                let tile_width = atlas.tile_width as f32;
+                let tile_height = atlas.tile_height as f32;
+                let character_width = (atlas.columns as f32).recip(); // in uv coords
+                let character_height = (atlas.rows as f32).recip(); // in uv coords          
+
+                let mut entities = Vec::new();
+                let chars = text.chars();
+                let chars_len = text.len() as f32;
+                let offset = -tile_width * chars_len * scale / 2.0;
+                // this is probably terrible practice for anything aother than ascii
+                for (i, char) in chars.into_iter().enumerate() {
+                    if let Some(index) = atlas.char_map.find(char) {
+                        let x = (index % 22) as f32;
+                        let y = (index / 22) as f32;
+                        let position = Vec3::new(offset + i as f32 * tile_width * scale , 16.0, 0.0);
+                        let id = state.scene.add_entity(
+                            atlas.mesh_id,
+                            atlas.material_id,
+                            InstanceProperties::builder()
+                            .with_translation(position)
+                            .with_uv_offset_scale(
+                                Vec2::new(x * character_width, y * character_height),
+                                Vec2::new(character_width, character_height))
+                                .with_scale(scale * Vec3::new(tile_width, tile_height, 1.0))
+                            .build(),
+                        );
+                        entities.push(id);
+                    }
+                }
+
+                Self {
+                    text,
+                    entities,
+                }
+            }
+        }
+
+        // Font test
+        let quad_mesh = crate::utils::build_quad_mesh(1.0, 1.0, Vec2::ZERO, state);
+        let mesh_id = state.resources.meshes.insert(quad_mesh);
+        let material_id = resources[&"micro_font".to_string()].1;
+        let atlas = FontAtlas {
+            mesh_id,
+            material_id,
+            char_map: "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuvWXYZ0123456789_.,!?:; wxyz()[]{}'\"/\\|=-+*<>%".to_string(),
+            tile_width: 4,
+            tile_height: 6,
+            columns: 22,
+            rows: 4,
+        };
+
+        let text = "Hello World!".to_string();
+        TextMesh::new(text, atlas, 2.0, state);
 
         for i in 0..3 {
             let dummy_character = Character::create_on_grid(

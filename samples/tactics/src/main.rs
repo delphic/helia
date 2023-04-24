@@ -79,6 +79,17 @@ impl GameState {
                 state,
             ),
         );
+        self.resources.insert(
+            "micro_font".to_string(),
+            utils::build_sprite_resources(
+                "micro_font",
+                22.0 * 4.0, // characters are 4 pixels wide, 22 characters per row
+                4.0 * 6.0,  // characters are 6 pixels high, 4 rows in the atlas
+                Vec2::new(0.0, 0.0),
+                include_bytes!("../assets/micro-font.png"),
+                state
+            ),
+        );
     }
 }
 

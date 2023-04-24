@@ -28,6 +28,15 @@ fn sized_quad_positions(width: f32, height: f32, offset: Vec2) -> Vec<Vec3> {
 }
 // TODO: Should we perhaps just have a single global quad mesh in Helia and use scale instead?
 
+pub fn build_quad_mesh(width: f32, height: f32, offset: Vec2, state: &mut State) -> Mesh {
+    Mesh::from_arrays(
+        &sized_quad_positions(width, height, offset).as_slice(),
+        QUAD_UVS,
+        QUAD_INDICES,
+        &state.device,
+    )
+}
+
 pub fn build_sprite_resources(
     label: &str,
     width: f32,
@@ -40,12 +49,7 @@ pub fn build_sprite_resources(
     let material = Material::new(state.shaders.sprite, texture, &state);
     let material_id = state.resources.materials.insert(material);
 
-    let quad_mesh = Mesh::from_arrays(
-        &sized_quad_positions(width, height, offset).as_slice(),
-        QUAD_UVS,
-        QUAD_INDICES,
-        &state.device,
-    );
+    let quad_mesh = build_quad_mesh(width, height, offset, state);
     let mesh_id = state.resources.meshes.insert(quad_mesh);
     (mesh_id, material_id)
 }
