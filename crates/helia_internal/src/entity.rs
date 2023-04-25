@@ -126,6 +126,7 @@ pub struct Entity {
     pub mesh: MeshId,
     pub material: MaterialId,
     pub uniform_offset: u64,
+    pub visible: bool,
     // instance propertires
     pub properties: InstanceProperties,
     components: HashMap<TypeId, Box<dyn Any>>,
@@ -136,6 +137,7 @@ impl Entity {
         Self {
             mesh,
             material,
+            visible: true,
             uniform_offset: 0,
             properties,
             components: HashMap::new(),

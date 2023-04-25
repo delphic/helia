@@ -95,6 +95,7 @@ impl Scene {
             .render_objects
             .iter()
             .map(|id| (id, &self.entities[*id]))
+            .filter(|(_, entity)| entity.visible)
         {
             let material = &resources.materials[entity.material];
             if !entities_by_shader.contains_key(&material.shader) {
@@ -125,7 +126,11 @@ impl Scene {
             // profiled that so we should not lament its loss. If we wanted to see if it was an
             // improvement, then we would need an entity buffer per prefab
             let entities = &mut entities_by_shader.get_mut(&material.shader).unwrap();
-            for id in prefab.instances.iter() {
+            for id in prefab
+                .instances
+                .iter()
+                .filter(|id| self.entities[**id].visible)
+            {
                 entities.push(*id);
             }
         }
