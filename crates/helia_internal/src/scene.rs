@@ -64,6 +64,29 @@ impl Scene {
         entity_id
     }
 
+    pub fn remove_entity(&mut self, entity_id: EntityId) {
+        if let Some(index) = self.render_objects.iter().position(|x| *x == entity_id) {
+            self.render_objects.remove(index);
+            self.entities.remove(entity_id);
+        }
+    }
+
+    pub fn remove_instance(&mut self, prefab_id: PrefabId, entity_id: EntityId) {
+        if let Some(prefab) = self.prefabs.get_mut(prefab_id) {
+            if let Some(index) = prefab.instances.iter().position(|x| *x == entity_id) {
+                prefab.instances.remove(index);
+                self.entities.remove(entity_id);
+            }
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.entities.clear();
+        self.prefabs.clear();
+        self.render_objects.clear();
+        self.scene_graph.clear();
+    }
+
     pub fn get_entity(&self, id: EntityId) -> &Entity {
         &self.entities[id]
     }
