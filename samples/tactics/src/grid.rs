@@ -105,15 +105,16 @@ impl Grid {
         let reachable_positions = character.get_reachable_positions();
         for (id, highlight_pos) in self.highlights.iter() {
             let entity = state.scene.get_entity_mut(*id);
-            entity.properties.color = if reachable_positions.contains_key(&highlight_pos) {
-                Color {
+            if reachable_positions.contains_key(&highlight_pos) {
+                entity.properties.color = Color {
                     r: 0.0,
                     g: 1.0,
                     b: 1.0,
                     a: 0.5,
-                }
+                };
+                entity.visible = true;
             } else {
-                Color::TRANSPARENT
+                entity.visible = false;
             };
         }
     }
@@ -124,13 +125,14 @@ impl Grid {
             let id = self.highlights[index].0;
             let entity = state.scene.get_entity_mut(id);
             entity.properties.color = color;
-        }        
+            entity.visible = true;
+        }
     }
 
     pub fn clear_highlights(&self, state: &mut State) {
         for (id, _) in self.highlights.iter() {
             let entity = state.scene.get_entity_mut(*id);
-            entity.properties.color = Color::TRANSPARENT;
+            entity.visible = false;
         }
     }
 }
