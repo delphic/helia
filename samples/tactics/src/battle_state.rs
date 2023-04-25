@@ -9,6 +9,105 @@ use helia::material::MaterialId;
 use helia::mesh::MeshId;
 use helia::{entity::*, *};
 
+#[derive(Clone)]
+struct FontAtlas {
+    mesh_id: MeshId,
+    material_id: MaterialId,
+    char_map: String,
+    tile_width: u16,
+    tile_height: u16,
+    columns: u16,
+    rows: u16,
+}
+
+struct TextMesh {
+    text: String,
+    font: FontAtlas,
+    entities: Vec<(EntityId, Vec3)>,
+    position: Vec3,
+    scale: f32,
+}
+
+impl TextMesh {
+    fn new(text: String, position: Vec3, font: FontAtlas, scale: f32, state: &mut State) -> Self {
+        let tile_width = font.tile_width as f32;
+        let tile_height = font.tile_height as f32;
+        let character_width = (font.columns as f32).recip(); // in uv coords
+        let character_height = (font.rows as f32).recip(); // in uv coords
+
+        let mut entities = Vec::new();
+        let chars = text.chars();
+        let chars_len = text.len() as f32;
+        let offset = -tile_width * chars_len * scale / 2.0;
+        // this is probably terrible practice for anything aother than ascii
+        for (i, char) in chars.into_iter().enumerate() {
+            if let Some(index) = font.char_map.find(char) {
+                let x = (index % 22) as f32;
+                let y = (index / 22) as f32;
+                let entity_position =
+                    position + Vec3::new(offset + i as f32 * tile_width * scale, 0.0, 0.0);
+                let id = state.scene.add_entity(
+                    font.mesh_id,
+                    font.material_id,
+                    InstanceProperties::builder()
+                        .with_translation(entity_position)
+                        .with_uv_offset_scale(
+                            Vec2::new(x * character_width, y * character_height),
+                            Vec2::new(character_width, character_height),
+                        )
+                        .with_scale(scale * Vec3::new(tile_width, tile_height, 1.0))
+                        .build(),
+                );
+                entities.push((id, Vec3::ZERO));
+            }
+        }
+
+        Self {
+            text,
+            entities,
+            font,
+            position: Vec3::new(0.0, 16.0, 0.0),
+            scale,
+        }
+    }
+
+    fn calculate_entity_position(&self, index: usize) -> Vec3 {
+        let character_width = self.font.tile_width as f32 * self.scale;
+        let offset = -character_width * self.text.len() as f32 / 2.0;
+        self.position + Vec3::new(offset + index as f32 * character_width, 0.0, 0.0)
+    }
+
+    #[allow(dead_code)]
+    pub fn translate(&mut self, position: Vec3, state: &mut State) {
+        self.position = position;
+        for (i, (entity_id, offset)) in self.entities.iter().enumerate() {
+            let entity = state.scene.get_entity_mut(*entity_id);
+            let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
+
+            entity.properties.transform = Mat4::from_scale_rotation_translation(
+                scale,
+                rotation,
+                self.calculate_entity_position(i) + *offset,
+            )
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn offset_char(&mut self, index: usize, offset: Vec3, state: &mut State) {
+        // set individual character offset from default position
+        if index < self.entities.len() {
+            let (id, prev_offset) = self.entities[index];
+            let entity = state.scene.get_entity_mut(id);
+            let (scale, rotation, translation) =
+                entity.properties.transform.to_scale_rotation_translation();
+            let delta = offset - prev_offset;
+            entity.properties.transform =
+                Mat4::from_scale_rotation_translation(scale, rotation, translation + delta);
+            self.entities[index] = (id, offset);
+        }
+    }
+}
+
 pub enum BattleStage {
     PlayerMove,
     PlayerAction,
@@ -21,6 +120,7 @@ pub struct BattleState {
     grid: Grid,
     stage: BattleStage,
     active_player_index: usize,
+    text_mesh: TextMesh,
 }
 
 impl BattleState {
@@ -54,61 +154,6 @@ impl BattleState {
                 .build(),
         );
 
-
-        struct FontAtlas {
-            mesh_id: MeshId,
-            material_id: MaterialId,
-            char_map: String,
-            tile_width: u16,
-            tile_height: u16,
-            columns: u16,
-            rows: u16,
-        }
-
-        struct TextMesh {
-            text: String,
-            entities: Vec<EntityId>,
-        }
-
-        impl TextMesh {
-            fn new(text: String, atlas: FontAtlas, scale: f32, state: &mut State) -> Self {
-                let tile_width = atlas.tile_width as f32;
-                let tile_height = atlas.tile_height as f32;
-                let character_width = (atlas.columns as f32).recip(); // in uv coords
-                let character_height = (atlas.rows as f32).recip(); // in uv coords          
-
-                let mut entities = Vec::new();
-                let chars = text.chars();
-                let chars_len = text.len() as f32;
-                let offset = -tile_width * chars_len * scale / 2.0;
-                // this is probably terrible practice for anything aother than ascii
-                for (i, char) in chars.into_iter().enumerate() {
-                    if let Some(index) = atlas.char_map.find(char) {
-                        let x = (index % 22) as f32;
-                        let y = (index / 22) as f32;
-                        let position = Vec3::new(offset + i as f32 * tile_width * scale , 16.0, 0.0);
-                        let id = state.scene.add_entity(
-                            atlas.mesh_id,
-                            atlas.material_id,
-                            InstanceProperties::builder()
-                            .with_translation(position)
-                            .with_uv_offset_scale(
-                                Vec2::new(x * character_width, y * character_height),
-                                Vec2::new(character_width, character_height))
-                                .with_scale(scale * Vec3::new(tile_width, tile_height, 1.0))
-                            .build(),
-                        );
-                        entities.push(id);
-                    }
-                }
-
-                Self {
-                    text,
-                    entities,
-                }
-            }
-        }
-
         // Font test
         let quad_mesh = crate::utils::build_quad_mesh(1.0, 1.0, Vec2::ZERO, state);
         let mesh_id = state.resources.meshes.insert(quad_mesh);
@@ -124,7 +169,7 @@ impl BattleState {
         };
 
         let text = "Hello World!".to_string();
-        TextMesh::new(text, atlas, 2.0, state);
+        let text_mesh = TextMesh::new(text, Vec3::new(0.0, 16.0, 0.0), atlas, 2.0, state);
 
         for i in 0..3 {
             let dummy_character = Character::create_on_grid(
@@ -147,6 +192,7 @@ impl BattleState {
             dummys,
             stage: BattleStage::PlayerMove,
             active_player_index: 0,
+            text_mesh,
         }
     }
 
@@ -167,7 +213,16 @@ impl BattleState {
                     self.grid.clear_highlights(state);
                     self.stage = BattleStage::PlayerAction;
                     // this is essentially selecting the "skip turn" ability
-                    self.grid.set_highlight(player.character.position, Color::RED, state);
+                    self.grid
+                        .set_highlight(player.character.position, Color::RED, state);
+                    self.text_mesh.translate(Vec3::new(-16.0, 16.0, 0.0), state);
+                    for i in 0..self.text_mesh.text.len() {
+                        self.text_mesh.offset_char(
+                            i,
+                            Vec3::new(0.0, (i as f32 / 2.0).sin() * 4.0, 0.0),
+                            state,
+                        );
+                    }
                 }
             }
             BattleStage::PlayerAction => {
@@ -206,6 +261,11 @@ impl BattleState {
                 player.character.start_turn(&self.grid);
                 self.grid.set_movement_highlights(&player.character, state);
                 self.stage = BattleStage::PlayerMove;
+                self.text_mesh.translate(Vec3::new(0.0, 16.0, 0.0), state);
+                for i in 0..self.text_mesh.text.len() {
+                    self.text_mesh
+                        .offset_char(i, Vec3::new(0.0, 0.0, 0.0), state);
+                }
             }
         }
     }
