@@ -30,51 +30,64 @@ struct TextMesh {
 
 impl TextMesh {
     fn new(text: String, position: Vec3, font: FontAtlas, scale: f32, state: &mut State) -> Self {
-        let tile_width = font.tile_width as f32;
-        let tile_height = font.tile_height as f32;
-        let character_width = (font.columns as f32).recip(); // in uv coords
-        let character_height = (font.rows as f32).recip(); // in uv coords
-
-        let mut entities = Vec::new();
-        let chars = text.chars();
-        let chars_len = text.len() as f32;
-        let offset = -tile_width * chars_len * scale / 2.0;
-        // this is probably terrible practice for anything aother than ascii
-        for (i, char) in chars.into_iter().enumerate() {
-            if let Some(index) = font.char_map.find(char) {
-                let x = (index % 22) as f32;
-                let y = (index / 22) as f32;
-                let entity_position =
-                    position + Vec3::new(offset + i as f32 * tile_width * scale, 0.0, 0.0);
-                let id = state.scene.add_entity(
-                    font.mesh_id,
-                    font.material_id,
-                    InstanceProperties::builder()
-                        .with_translation(entity_position)
-                        .with_uv_offset_scale(
-                            Vec2::new(x * character_width, y * character_height),
-                            Vec2::new(character_width, character_height),
-                        )
-                        .with_scale(scale * Vec3::new(tile_width, tile_height, 1.0))
-                        .build(),
-                );
-                entities.push((id, Vec3::ZERO));
-            }
-        }
-
-        Self {
-            text,
-            entities,
+        let mut text_mesh = Self {
+            text: String::from(""),
+            entities: Vec::new(),
             font,
-            position: Vec3::new(0.0, 16.0, 0.0),
+            position,
             scale,
-        }
+        };
+        text_mesh.set_text(text, state);
+        text_mesh
     }
 
     fn calculate_entity_position(&self, index: usize) -> Vec3 {
         let character_width = self.font.tile_width as f32 * self.scale;
-        let offset = -character_width * self.text.len() as f32 / 2.0;
-        self.position + Vec3::new(offset + index as f32 * character_width, 0.0, 0.0)
+        let alignment_offset = -character_width * self.text.len() as f32 / 2.0;
+        // ^^ todo: more alignments!
+        self.position + Vec3::new(alignment_offset + index as f32 * character_width, 0.0, 0.0)
+    }
+
+    pub fn set_text(&mut self, text: String, state: &mut State) {
+        if !self.entities.is_empty() {
+            self.clear_entities(state);
+        }
+
+        self.text = text;
+
+        let tile_width = self.font.tile_width as f32;
+        let tile_height = self.font.tile_height as f32;
+        let character_width = (self.font.columns as f32).recip(); // in uv coords
+        let character_height = (self.font.rows as f32).recip(); // in uv coords
+
+        let chars = self.text.chars();
+        // this is probably terrible practice for anything aother than ascii
+        for (i, char) in chars.into_iter().enumerate() {
+            if let Some(index) = self.font.char_map.find(char) {
+                let x = (index % 22) as f32;
+                let y = (index / 22) as f32;
+                let id = state.scene.add_entity(
+                    self.font.mesh_id,
+                    self.font.material_id,
+                    InstanceProperties::builder()
+                        .with_translation(self.calculate_entity_position(i))
+                        .with_uv_offset_scale(
+                            Vec2::new(x * character_width, y * character_height),
+                            Vec2::new(character_width, character_height),
+                        )
+                        .with_scale(self.scale * Vec3::new(tile_width, tile_height, 1.0))
+                        .build(),
+                );
+                self.entities.push((id, Vec3::ZERO));
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn clear_entities(&mut self, state: &mut State) {
+        for (id, _) in &self.entities {
+            state.scene.remove_entity(*id);
+        }
     }
 
     #[allow(dead_code)]
@@ -94,7 +107,6 @@ impl TextMesh {
 
     #[allow(dead_code)]
     pub fn offset_char(&mut self, index: usize, offset: Vec3, state: &mut State) {
-        // set individual character offset from default position
         if index < self.entities.len() {
             let (id, prev_offset) = self.entities[index];
             let entity = state.scene.get_entity_mut(id);
