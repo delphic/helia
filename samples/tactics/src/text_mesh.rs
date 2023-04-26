@@ -1,8 +1,8 @@
 use glam::*;
-use helia::State;
 use helia::entity::*;
 use helia::material::MaterialId;
 use helia::mesh::MeshId;
+use helia::State;
 
 #[derive(Clone)]
 pub struct FontAtlas {
@@ -27,7 +27,13 @@ pub struct TextMesh {
 }
 
 impl TextMesh {
-    pub fn new(text: String, position: Vec3, font: FontAtlas, scale: f32, state: &mut State) -> Self {
+    pub fn new(
+        text: String,
+        position: Vec3,
+        font: FontAtlas,
+        scale: f32,
+        state: &mut State,
+    ) -> Self {
         let mut text_mesh = Self {
             text: String::from(""),
             entities: Vec::new(),

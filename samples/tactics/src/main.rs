@@ -2,15 +2,15 @@ mod battle_state;
 mod character;
 mod grid;
 mod player;
-mod utils;
 mod text_mesh;
+mod utils;
 
 use std::collections::HashMap;
 
 use battle_state::*;
 
 use glam::*;
-use helia::{camera::*, material::MaterialId, mesh::MeshId, *};
+use helia::{camera::*, entity::InstanceProperties, material::MaterialId, mesh::MeshId, *};
 
 type GameResources = HashMap<String, (MeshId, MaterialId)>;
 
@@ -88,7 +88,7 @@ impl GameState {
                 4.0 * 6.0,  // characters are 6 pixels high, 4 rows in the atlas
                 Vec2::new(0.0, 0.0),
                 include_bytes!("../assets/micro-font.png"),
-                state
+                state,
             ),
         );
     }
@@ -114,6 +114,27 @@ impl Game for GameState {
         state.scene.camera = camera;
 
         let mut battle_state = BattleState::new(&self.resources, state);
+
+        // 9 slice test
+        let slice_mesh = utils::build_9_slice_mesh(16.0, 16.0, 8.0, 8.0, 2.0, 2.0, 2.0, 2.0, state);
+        let mesh_id = state.resources.meshes.insert(slice_mesh);
+        let texture = helia::texture::Texture::from_bytes(
+            &state.device,
+            &state.queue,
+            include_bytes!("../assets/slice.png"),
+            "slice",
+        )
+        .unwrap();
+        let material = helia::material::Material::new(state.shaders.sprite, texture, &state);
+        let material_id = state.resources.materials.insert(material);
+        state.scene.add_entity(
+            mesh_id,
+            material_id,
+            InstanceProperties::builder()
+                .with_translation(Vec3::new(0.0, 64.0, 0.0))
+                .with_scale(8.0 * Vec3::ONE)
+                .build(),
+        );
 
         battle_state.enter(state);
         self.stage = Stage::Battle {

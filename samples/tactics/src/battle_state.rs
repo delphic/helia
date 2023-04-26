@@ -1,8 +1,8 @@
 use crate::character::*;
 use crate::grid::*;
 use crate::player::*;
-use crate::GameResources;
 use crate::text_mesh::*;
+use crate::GameResources;
 
 use glam::*;
 use helia::input::VirtualKeyCode;
