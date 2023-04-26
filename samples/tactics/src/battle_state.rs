@@ -19,6 +19,9 @@ struct FontAtlas {
     columns: u16,
     rows: u16,
 }
+// ^^ this could be any atlas if you replaced the char_map with id -> index map
+// though we're likely to add individual char meta data so maybe hold off on that
+// though maybe that means we want struct Font that contains an Atlas struct
 
 struct TextMesh {
     text: String,
