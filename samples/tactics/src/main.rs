@@ -3,6 +3,7 @@ mod character;
 mod grid;
 mod player;
 mod utils;
+mod text_mesh;
 
 use std::collections::HashMap;
 
