@@ -2,8 +2,8 @@ use glam::*;
 use helia::entity::*;
 use helia::material::MaterialId;
 use helia::mesh::MeshId;
-use helia::State;
 use helia::transform::Transform;
+use helia::State;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -204,7 +204,8 @@ impl TextMesh {
                     InstanceProperties::builder()
                         .with_transform(Transform::from_position_scale(
                             position,
-                            self.scale * Vec3::new(tile_width, tile_height, 1.0)))
+                            self.scale * Vec3::new(tile_width, tile_height, 1.0),
+                        ))
                         .with_uv_offset_scale(
                             Vec2::new(x * character_width, y * character_height),
                             Vec2::new(character_width, character_height),
@@ -234,7 +235,8 @@ impl TextMesh {
             let mut position = self.position + self.calculate_alignemnt_offset();
             for (i, (entity_id, offset)) in self.entities.iter().enumerate() {
                 if let Some(char) = self.text.chars().nth(i) {
-                    let transform = &mut state.scene.get_entity_mut(*entity_id).properties.transform;
+                    let transform =
+                        &mut state.scene.get_entity_mut(*entity_id).properties.transform;
                     transform.position = position + *offset;
                     position += self.get_char_width(char) * Vec3::X;
                 }

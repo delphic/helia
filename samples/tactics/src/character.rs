@@ -5,7 +5,8 @@ use helia::{
     entity::{EntityId, InstanceProperties},
     material::MaterialId,
     mesh::MeshId,
-    *, transform::Transform,
+    transform::Transform,
+    *,
 };
 
 use crate::grid::*;
@@ -31,7 +32,9 @@ impl Character {
             mesh_id,
             material_id,
             InstanceProperties::builder()
-                .with_transform(Transform::from_position(grid.get_translation_for_position(position)))
+                .with_transform(Transform::from_position(
+                    grid.get_translation_for_position(position),
+                ))
                 .build(),
         );
         grid.occupancy.insert(position);

@@ -2,7 +2,8 @@ use glam::*;
 use helia::{
     entity::{EntityId, InstanceProperties},
     prefab::PrefabId,
-    Color, State, transform::Transform,
+    transform::Transform,
+    Color, State,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -35,8 +36,7 @@ impl Grid {
             let id = state.scene.add_instance(
                 prefab_id,
                 InstanceProperties::builder()
-                    .with_transform(
-                        Transform::from_position(
+                    .with_transform(Transform::from_position(
                         self.get_translation_for_position(position)
                             - 16.0 * Vec3::Y
                             - 32.0 * Vec3::Z,

@@ -6,7 +6,8 @@ use helia::{
     mesh::Mesh,
     orbit_camera::*,
     texture::Texture,
-    *, transform::Transform,
+    transform::Transform,
+    *,
 };
 
 const CUBE_POSITIONS: &[Vec3] = &[
@@ -120,9 +121,7 @@ impl Game for GameState {
 
         for i in 0..3 {
             let props = InstanceProperties::builder()
-                .with_transform(Transform::from_position(
-                    -2.0 * (i as f32) * Vec3::Z,
-                ))
+                .with_transform(Transform::from_position(-2.0 * (i as f32) * Vec3::Z))
                 .build();
             self.cubes
                 .push(state.scene.add_entity(mesh_id, material_id, props));
@@ -138,8 +137,9 @@ impl Game for GameState {
         for (i, cube) in self.cubes.iter().enumerate() {
             let transform = &mut state.scene.get_entity_mut(*cube).properties.transform;
             transform.position = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
-            transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
-                * transform.rotation;
+            transform.rotation =
+                Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
+                    * transform.rotation;
         }
     }
 

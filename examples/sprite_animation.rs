@@ -67,14 +67,11 @@ impl Game for GameState {
     fn init(&mut self, state: &mut State) {
         let sprite_bytes = include_bytes!("../assets/lena_shoot.png");
 
-        let texture = helia::texture::Texture::from_bytes(
-            &state.device,
-            &state.queue,
-            sprite_bytes,
-        )
-        .unwrap();
+        let texture =
+            helia::texture::Texture::from_bytes(&state.device, &state.queue, sprite_bytes).unwrap();
         let texture_id = state.resources.textures.insert(texture);
-        let lena_material = helia::material::Material::new(state.shaders.sprite, texture_id, &state);
+        let lena_material =
+            helia::material::Material::new(state.shaders.sprite, texture_id, &state);
         let lena_material_id = state.resources.materials.insert(lena_material);
 
         let quad_mesh = Mesh::from_arrays(QUAD_POSITIONS, QUAD_UVS, QUAD_INDICES, &state.device);

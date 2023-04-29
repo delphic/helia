@@ -222,7 +222,8 @@ impl Game for GameState {
             InstanceProperties::builder()
                 .with_transform(transform::Transform::from_position_scale(
                     Vec3::new(0.0, 64.0, 0.0),
-                    4.0 * Vec3::ONE))
+                    4.0 * Vec3::ONE,
+                ))
                 .build(),
         );
 

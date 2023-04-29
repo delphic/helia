@@ -1,4 +1,7 @@
-use std::{collections::HashMap, any::{Any, TypeId}};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+};
 
 use glam::Vec2;
 
@@ -106,8 +109,9 @@ impl Entity {
     }
 
     pub fn add_component<T: 'static>(&mut self, component: T) {
-        self.components.insert(TypeId::of::<T>(), Box::new(component));
-    } 
+        self.components
+            .insert(TypeId::of::<T>(), Box::new(component));
+    }
 
     pub fn get_component<T: 'static>(&self) -> Option<&T> {
         let id = TypeId::of::<T>();

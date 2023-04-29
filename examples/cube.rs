@@ -127,9 +127,10 @@ impl Game for GameState {
         }
         if let Some(cube) = self.cube {
             let transform = &mut state.scene.get_entity_mut(cube).properties.transform;
-            
+
             transform.position = Vec3::new(state.time.total_elapsed.sin(), 0.0, 0.0);
-            transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
+            transform.rotation =
+                Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * transform.rotation;
         }
     }

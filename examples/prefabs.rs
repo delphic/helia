@@ -7,7 +7,8 @@ use helia::{
     orbit_camera::*,
     shader::Vertex,
     texture::Texture,
-    *, transform::Transform,
+    transform::Transform,
+    *,
 };
 
 const VERTICES: &[Vertex] = &[

@@ -119,12 +119,11 @@ impl Scene {
         // Calculate world matrices
         let mut recalculated = HashSet::new();
         let mut pending = Vec::new();
-        let mut entities = self.entities.keys().collect::<Vec::<_>>();
+        let mut entities = self.entities.keys().collect::<Vec<_>>();
         if let Some(id) = entities.pop() {
             pending.push(id);
         }
         while let Some(id) = pending.last() {
-
             let mut matrix = Mat4::IDENTITY;
             if let Some(parent) = self.entities[*id].properties.transform.parent {
                 if !recalculated.contains(&parent) {
@@ -152,7 +151,6 @@ impl Scene {
                 }
             }
         }
-
 
         for (id, entity) in self
             .render_objects

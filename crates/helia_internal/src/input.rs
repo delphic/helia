@@ -45,7 +45,7 @@ impl<T: Eq + Hash + Copy> InputMap<T> {
     pub fn pressed(&mut self, key: T) {
         if !self.pressed.contains(&key) {
             self.down.insert(key);
-            self.down_times.insert(key, Instant::now());    
+            self.down_times.insert(key, Instant::now());
         }
         self.pressed.insert(key);
     }
