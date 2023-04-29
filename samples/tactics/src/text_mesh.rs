@@ -3,6 +3,7 @@ use helia::entity::*;
 use helia::material::MaterialId;
 use helia::mesh::MeshId;
 use helia::State;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct FontAtlas {
@@ -13,10 +14,23 @@ pub struct FontAtlas {
     pub tile_height: u16,
     pub columns: u16,
     pub rows: u16,
+    pub custom_char_widths: Option<HashMap<char, u16>>,
 }
-// ^^ this could be any atlas if you replaced the char_map with id -> index map
+// ^^ this could almost be any atlas if you replaced the char_map with id -> index map
 // though we're likely to add individual char meta data so maybe hold off on that
 // though maybe that means we want struct Font that contains an Atlas struct
+
+impl FontAtlas {
+    pub fn build_char_widths(width_to_chars: HashMap<u16, String>) -> HashMap<char, u16> {
+        let mut result = HashMap::new();
+        for (width, str) in width_to_chars {
+            for char in str.chars() {
+                result.insert(char, width);
+            }
+        }
+        result
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
@@ -122,7 +136,7 @@ impl TextMesh {
         TextMeshBuilder::new(text, position, font)
     }
 
-    fn calculate_entity_position(&self, index: usize) -> Vec3 {
+    fn calculate_alignemnt_offset(&self) -> Vec3 {
         let character_width = self.font.tile_width as f32 * self.scale;
         let x_offset = match self.alignment {
             TextAlignment::Left => character_width / 2.0,
@@ -136,7 +150,16 @@ impl TextMesh {
             VerticalAlignment::Bottom => character_height,
         };
 
-        self.position + Vec3::new(x_offset + index as f32 * character_width, y_offset, 0.0)
+        Vec3::new(x_offset, y_offset, 0.0)
+    }
+
+    fn get_char_width(&self, char: char) -> f32 {
+        if let Some(custom_widths) = &self.font.custom_char_widths {
+            if let Some(width) = custom_widths.get(&char) {
+                return *width as f32 * self.scale;
+            }
+        }
+        self.font.tile_width as f32 * self.scale
     }
 
     #[allow(dead_code)]
@@ -161,9 +184,10 @@ impl TextMesh {
         let character_width = (self.font.columns as f32).recip(); // in uv coords
         let character_height = (self.font.rows as f32).recip(); // in uv coords
 
+        let mut position = self.position + self.calculate_alignemnt_offset();
         let chars = self.text.chars();
         // this is probably terrible practice for anything aother than ascii
-        for (i, char) in chars.into_iter().enumerate() {
+        for char in chars {
             if let Some(index) = self.font.char_map.find(char) {
                 let x = (index % 22) as f32;
                 let y = (index / 22) as f32;
@@ -171,7 +195,7 @@ impl TextMesh {
                     self.font.mesh_id,
                     self.font.material_id,
                     InstanceProperties::builder()
-                        .with_translation(self.calculate_entity_position(i))
+                        .with_translation(position)
                         .with_uv_offset_scale(
                             Vec2::new(x * character_width, y * character_height),
                             Vec2::new(character_width, character_height),
@@ -180,6 +204,7 @@ impl TextMesh {
                         .build(),
                 );
                 self.entities.push((id, Vec3::ZERO));
+                position += self.get_char_width(char) * Vec3::X
             }
         }
     }
@@ -194,16 +219,26 @@ impl TextMesh {
     #[allow(dead_code)]
     pub fn translate(&mut self, position: Vec3, state: &mut State) {
         self.position = position;
-        for (i, (entity_id, offset)) in self.entities.iter().enumerate() {
-            let entity = state.scene.get_entity_mut(*entity_id);
-            let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
-
-            entity.properties.transform = Mat4::from_scale_rotation_translation(
-                scale,
-                rotation,
-                self.calculate_entity_position(i) + *offset,
-            )
+        if self.text.len() != self.entities.len() {
+            self.set_text(self.text.clone(), state);
+            log::warn!("Tried to translate text mesh, but text did not match entity length, use set_text fn to alter text value");
+        } else {
+            let mut position = self.position + self.calculate_alignemnt_offset();
+            for (i, (entity_id, offset)) in self.entities.iter().enumerate() {
+                if let Some(char) = self.text.chars().nth(i) {
+                    let entity = state.scene.get_entity_mut(*entity_id);
+                    let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
+        
+                    entity.properties.transform = Mat4::from_scale_rotation_translation(
+                        scale,
+                        rotation,
+                        position + *offset,
+                    );
+                    position += self.get_char_width(char) * Vec3::X;
+                }
+            }
         }
+
     }
 
     #[allow(dead_code)]

@@ -138,6 +138,7 @@ impl GameState {
             tile_height: 6,
             columns: 22,
             rows: 4,
+            custom_char_widths: None,
         };
         self.resources
             .fonts
@@ -148,6 +149,12 @@ impl GameState {
             state,
         );
 
+        let mut custom_widths = HashMap::new();
+        custom_widths.insert(5, "abcdeghknopqstuvxyz.,!?:;=".to_string());
+        custom_widths.insert(4, "fr0123456789 {}'\"/\\|-+*<>".to_string());
+        custom_widths.insert(3, "jl()[]".to_string());
+        custom_widths.insert(2, "i".to_string());
+
         let mini_atlas = FontAtlas {
             mesh_id,
             material_id,
@@ -156,6 +163,7 @@ impl GameState {
             tile_height: 8,
             columns: 22,
             rows: 4,
+            custom_char_widths: Some(FontAtlas::build_char_widths(custom_widths)),
         };
         self.resources.fonts.insert("mini".to_string(), mini_atlas);
 
