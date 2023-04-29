@@ -193,22 +193,21 @@ pub fn build_9_slice_mesh(
 }
 
 pub fn build_sprite_resources(
-    label: &str,
     width: f32,
     height: f32,
     offset: Vec2,
     sprite_bytes: &[u8],
     state: &mut State,
 ) -> (MeshId, MaterialId) {
-    let material_id = build_material(label, sprite_bytes, state);
+    let material_id = build_material(sprite_bytes, state);
 
     let quad_mesh = build_quad_mesh(width, height, offset, state);
     let mesh_id = state.resources.meshes.insert(quad_mesh);
     (mesh_id, material_id)
 }
 
-pub fn build_material(label: &str, sprite_bytes: &[u8], state: &mut State) -> MaterialId {
-    let texture = Texture::from_bytes(&state.device, &state.queue, sprite_bytes, label).unwrap();
+pub fn build_material(sprite_bytes: &[u8], state: &mut State) -> MaterialId {
+    let texture = Texture::from_bytes(&state.device, &state.queue, sprite_bytes).unwrap();
     let material = Material::new(state.shaders.sprite, texture, &state);
     state.resources.materials.insert(material)
 }

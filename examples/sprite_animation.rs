@@ -71,7 +71,6 @@ impl Game for GameState {
             &state.device,
             &state.queue,
             sprite_bytes,
-            "lena_shoot",
         )
         .unwrap();
         let lena_material = helia::material::Material::new(state.shaders.sprite, texture, &state);

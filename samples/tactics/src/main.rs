@@ -23,7 +23,7 @@ pub struct GameTexture<'a> {
 
 impl<'a> GameTexture<'a> {
     pub fn build_texture(&self, state: &mut State) -> texture::Texture {
-        texture::Texture::from_bytes(&state.device, &state.queue, self.bytes, self.name.as_str())
+        texture::Texture::from_bytes(&state.device, &state.queue, self.bytes)
             .unwrap()
     }
 }
@@ -83,7 +83,6 @@ impl GameState {
         self.resources.insert(
             "helia".to_string(),
             utils::build_sprite_resources(
-                "helia",
                 96.0,
                 96.0,
                 Vec2::new(0.0, 48.0),
@@ -94,7 +93,6 @@ impl GameState {
         self.resources.insert(
             "bg".to_string(),
             utils::build_sprite_resources(
-                "bg",
                 960.0,
                 480.0,
                 Vec2::ZERO,
@@ -105,7 +103,6 @@ impl GameState {
         self.resources.insert(
             "highlight".to_string(),
             utils::build_sprite_resources(
-                "sq",
                 96.0,
                 32.0,
                 Vec2::new(0.0, 16.0),
@@ -116,7 +113,6 @@ impl GameState {
         self.resources.insert(
             "dummy".to_string(),
             utils::build_sprite_resources(
-                "dummy",
                 64.0,
                 64.0,
                 Vec2::new(0.0, 32.0),
@@ -130,7 +126,6 @@ impl GameState {
 
         let mesh_id = state.resources.meshes.insert(quad_mesh);
         let material_id = utils::build_material(
-            "micro-font",
             include_bytes!("../assets/micro-font.png"),
             state,
         );
@@ -149,7 +144,6 @@ impl GameState {
             .insert("micro".to_string(), micro_atlas);
 
         let material_id = utils::build_material(
-            "mini-font",
             include_bytes!("../assets/mini-font.png"),
             state,
         );
@@ -167,11 +161,11 @@ impl GameState {
 
         self.resources.materials.insert(
             "white-sq".to_string(),
-            utils::build_material("white-sq", include_bytes!("../assets/white-sq.png"), state),
+            utils::build_material(include_bytes!("../assets/white-sq.png"), state),
         );
         self.resources.materials.insert(
             "border".to_string(),
-            utils::build_material("border", include_bytes!("../assets/border.png"), state),
+            utils::build_material(include_bytes!("../assets/border.png"), state),
         );
     }
 }
@@ -215,8 +209,7 @@ impl Game for GameState {
         let texture = helia::texture::Texture::from_bytes(
             &state.device,
             &state.queue,
-            include_bytes!("../assets/slice.png"),
-            "slice",
+            include_bytes!("../assets/slice.png")
         )
         .unwrap();
         let material = helia::material::Material::new(state.shaders.sprite, texture, &state);

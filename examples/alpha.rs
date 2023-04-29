@@ -110,7 +110,7 @@ impl Game for GameState {
 
         // Makin' Textures
         let texture_bytes = include_bytes!("../assets/lena.png");
-        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena").unwrap();
+        let texture = Texture::from_bytes(&device, &queue, texture_bytes).unwrap();
         let material = Material::new(state.shaders.sprite, texture, state);
         let material_id = state.resources.materials.insert(material);
 

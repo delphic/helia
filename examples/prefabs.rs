@@ -74,11 +74,11 @@ impl Game for GameState {
 
         // Makin' Textures
         let texture_bytes = include_bytes!("../assets/lena_on_black.png");
-        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena black").unwrap();
+        let texture = Texture::from_bytes(&device, &queue, texture_bytes).unwrap();
         let black_material = Material::new(state.shaders.unlit_textured, texture, state);
 
         let texture_bytes = include_bytes!("../assets/lena_on_rink.png");
-        let texture = Texture::from_bytes(&device, &queue, texture_bytes, "lena rink").unwrap();
+        let texture = Texture::from_bytes(&device, &queue, texture_bytes).unwrap();
         let rink_material = Material::new(state.shaders.unlit_textured, texture, state);
 
         let mesh = Mesh::new(VERTICES, INDICES, &device);
