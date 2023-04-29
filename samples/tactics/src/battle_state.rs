@@ -25,10 +25,10 @@ pub struct BattleState {
 
 impl BattleState {
     pub fn new(resources: &GameResources, state: &mut State) -> Self {
-        let helia_sprite_ids = resources[&"helia".to_string()];
-        let bg_sprite_ids = resources[&"bg".to_string()];
-        let highlight_ids = resources[&"highlight".to_string()];
-        let dummy_ids = resources[&"dummy".to_string()];
+        let helia_sprite_ids = resources.get_pair(&"helia".to_string()).unwrap();
+        let bg_sprite_ids = resources.get_pair(&"bg".to_string()).unwrap();
+        let highlight_ids = resources.get_pair(&"highlight".to_string()).unwrap();
+        let dummy_ids = resources.get_pair(&"dummy".to_string()).unwrap();
 
         let mut grid = Grid::new();
         let mut players = Vec::new();
@@ -55,28 +55,7 @@ impl BattleState {
         );
 
         // Font test
-        let quad_mesh = crate::utils::build_quad_mesh(1.0, 1.0, Vec2::ZERO, state);
-        let mesh_id = state.resources.meshes.insert(quad_mesh);
-        let material_id = resources[&"micro_font".to_string()].1;
-        let atlas = FontAtlas {
-            mesh_id,
-            material_id,
-            char_map: "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuvWXYZ0123456789_.,!?:; wxyz()[]{}'\"/\\|=-+*<>%".to_string(),
-            tile_width: 4,
-            tile_height: 6,
-            columns: 22,
-            rows: 4,
-        };
-        let material_id = resources[&"mini_font".to_string()].1;
-        let mini_atlas = FontAtlas {
-            mesh_id,
-            material_id,
-            char_map: "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuvWXYZ0123456789_.,!?:; wxyz()[]{}'\"/\\|=-+*<>%".to_string(),
-            tile_width: 6,
-            tile_height: 8,
-            columns: 22,
-            rows: 4,
-        };
+        let mini_atlas = resources.fonts[&"mini".to_string()].clone();
 
         let text = "Helia Tactics".to_string();
 

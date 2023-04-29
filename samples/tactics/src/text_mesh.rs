@@ -67,6 +67,7 @@ impl TextMeshBuilder {
         )
     }
 
+    #[allow(dead_code)]
     pub fn with_scale(&mut self, scale: f32) -> &mut Self {
         self.scale = scale;
         self

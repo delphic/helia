@@ -200,11 +200,15 @@ pub fn build_sprite_resources(
     sprite_bytes: &[u8],
     state: &mut State,
 ) -> (MeshId, MaterialId) {
-    let texture = Texture::from_bytes(&state.device, &state.queue, sprite_bytes, label).unwrap();
-    let material = Material::new(state.shaders.sprite, texture, &state);
-    let material_id = state.resources.materials.insert(material);
+    let material_id = build_material(label, sprite_bytes, state);
 
     let quad_mesh = build_quad_mesh(width, height, offset, state);
     let mesh_id = state.resources.meshes.insert(quad_mesh);
     (mesh_id, material_id)
+}
+
+pub fn build_material(label: &str, sprite_bytes: &[u8], state: &mut State) -> MaterialId {
+    let texture = Texture::from_bytes(&state.device, &state.queue, sprite_bytes, label).unwrap();
+    let material = Material::new(state.shaders.sprite, texture, &state);
+    state.resources.materials.insert(material)
 }

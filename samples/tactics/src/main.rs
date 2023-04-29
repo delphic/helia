@@ -14,7 +14,49 @@ use slice_sprite::*;
 use glam::*;
 use helia::{camera::*, entity::InstanceProperties, material::MaterialId, mesh::MeshId, *};
 
-type GameResources = HashMap<String, (MeshId, MaterialId)>;
+pub struct GameTexture<'a> {
+    pub name: String,
+    pub bytes: &'a [u8], // should take texture Id for sanity here
+    pub dimensions: Vec2,
+    pub offset: Vec2,
+}
+
+impl<'a> GameTexture<'a> {
+    pub fn build_texture(&self, state: &mut State) -> texture::Texture {
+        texture::Texture::from_bytes(&state.device, &state.queue, self.bytes, self.name.as_str())
+            .unwrap()
+    }
+}
+
+pub struct GameResources {
+    pub meshes: HashMap<String, MeshId>,
+    pub materials: HashMap<String, MaterialId>,
+    pub fonts: HashMap<String, FontAtlas>,
+}
+
+impl GameResources {
+    pub fn new() -> Self {
+        Self {
+            meshes: HashMap::new(),
+            materials: HashMap::new(),
+            fonts: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, key: String, pair: (MeshId, MaterialId)) {
+        self.meshes.insert(key.clone(), pair.0);
+        self.materials.insert(key, pair.1);
+    }
+
+    pub fn get_pair(&self, key: &String) -> Option<(MeshId, MaterialId)> {
+        if let (Some(mesh_id), Some(material_id)) = (self.meshes.get(key), self.materials.get(key))
+        {
+            Some((*mesh_id, *material_id))
+        } else {
+            None
+        }
+    }
+}
 
 enum Stage {
     Init,
@@ -82,27 +124,54 @@ impl GameState {
                 state,
             ),
         );
-        self.resources.insert(
-            "micro_font".to_string(),
-            utils::build_sprite_resources(
-                "micro_font",
-                22.0 * 4.0, // characters are 4 pixels wide, 22 characters per row
-                4.0 * 6.0,  // characters are 6 pixels high, 4 rows in the atlas
-                Vec2::new(0.0, 0.0),
-                include_bytes!("../assets/micro-font.png"),
-                state,
-            ),
+
+        let quad_mesh = crate::utils::build_quad_mesh(1.0, 1.0, Vec2::ZERO, state);
+        let char_map = "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuvWXYZ0123456789_.,!?:; wxyz()[]{}'\"/\\|=-+*<>%".to_string();
+
+        let mesh_id = state.resources.meshes.insert(quad_mesh);
+        let material_id = utils::build_material(
+            "micro-font",
+            include_bytes!("../assets/micro-font.png"),
+            state,
         );
-        self.resources.insert(
-            "mini_font".to_string(),
-            utils::build_sprite_resources(
-                "mini_font",
-                22.0 * 6.0, // characters are 6 pixels wide, 22 characters per row
-                4.0 * 8.0,  // characters are 8 pixels high, 4 rows in the atlas
-                Vec2::new(0.0, 0.0),
-                include_bytes!("../assets/mini-font.png"),
-                state,
-            ),
+
+        let micro_atlas = FontAtlas {
+            mesh_id,
+            material_id,
+            char_map: char_map.clone(),
+            tile_width: 4,
+            tile_height: 6,
+            columns: 22,
+            rows: 4,
+        };
+        self.resources
+            .fonts
+            .insert("micro".to_string(), micro_atlas);
+
+        let material_id = utils::build_material(
+            "mini-font",
+            include_bytes!("../assets/mini-font.png"),
+            state,
+        );
+
+        let mini_atlas = FontAtlas {
+            mesh_id,
+            material_id,
+            char_map: char_map.clone(),
+            tile_width: 6,
+            tile_height: 8,
+            columns: 22,
+            rows: 4,
+        };
+        self.resources.fonts.insert("mini".to_string(), mini_atlas);
+
+        self.resources.materials.insert(
+            "white-sq".to_string(),
+            utils::build_material("white-sq", include_bytes!("../assets/white-sq.png"), state),
+        );
+        self.resources.materials.insert(
+            "border".to_string(),
+            utils::build_material("border", include_bytes!("../assets/border.png"), state),
         );
     }
 }
@@ -192,6 +261,7 @@ pub async fn run() {
         .await;
 }
 
+use text_mesh::FontAtlas;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
