@@ -202,9 +202,8 @@ impl TextMesh {
                     self.font.mesh_id,
                     self.font.material_id,
                     InstanceProperties::builder()
-                        .with_transform(Transform::from_position_rotation_scale(
+                        .with_transform(Transform::from_position_scale(
                             position,
-                            Quat::IDENTITY,
                             self.scale * Vec3::new(tile_width, tile_height, 1.0)))
                         .with_uv_offset_scale(
                             Vec2::new(x * character_width, y * character_height),
