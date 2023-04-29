@@ -168,8 +168,14 @@ impl TextMesh {
     }
 
     pub fn measure_text(&self, text: &String) -> f32 {
-        let character_width = self.font.tile_width as f32 * self.scale;
-        character_width * text.len() as f32
+        if let Some(custom_widths) = &self.font.custom_char_widths {
+            text.chars()
+                .map(|char| custom_widths.get(&char).unwrap_or(&self.font.tile_width))
+                .map(|w| *w as f32 * self.scale)
+                .sum()
+        } else {
+            self.font.tile_width as f32 * self.scale * text.len() as f32
+        }
     }
 
     pub fn set_text(&mut self, text: String, state: &mut State) {
@@ -227,18 +233,15 @@ impl TextMesh {
             for (i, (entity_id, offset)) in self.entities.iter().enumerate() {
                 if let Some(char) = self.text.chars().nth(i) {
                     let entity = state.scene.get_entity_mut(*entity_id);
-                    let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
-        
-                    entity.properties.transform = Mat4::from_scale_rotation_translation(
-                        scale,
-                        rotation,
-                        position + *offset,
-                    );
+                    let (scale, rotation, _) =
+                        entity.properties.transform.to_scale_rotation_translation();
+
+                    entity.properties.transform =
+                        Mat4::from_scale_rotation_translation(scale, rotation, position + *offset);
                     position += self.get_char_width(char) * Vec3::X;
                 }
             }
         }
-
     }
 
     #[allow(dead_code)]
