@@ -6,7 +6,7 @@ use helia::State;
 
 #[derive(Clone)]
 pub struct FontAtlas {
-    pub mesh_id: MeshId,
+    pub mesh_id: MeshId, // assumed center anchored 1x1 quad
     pub material_id: MaterialId,
     pub char_map: String,
     pub tile_width: u16,
@@ -18,12 +18,79 @@ pub struct FontAtlas {
 // though we're likely to add individual char meta data so maybe hold off on that
 // though maybe that means we want struct Font that contains an Atlas struct
 
-pub struct TextMesh {
-    pub text: String,
+#[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
+pub enum TextAlignment {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
+pub enum VerticalAlignment {
+    Top,
+    Center,
+    Bottom,
+}
+
+pub struct TextMeshBuilder {
+    text: String,
     font: FontAtlas,
-    entities: Vec<(EntityId, Vec3)>,
     position: Vec3,
     scale: f32,
+    alignment: TextAlignment,
+    vertical_alignment: VerticalAlignment,
+}
+
+impl TextMeshBuilder {
+    pub fn new(text: String, position: Vec3, font: FontAtlas) -> Self {
+        Self {
+            text,
+            font,
+            position,
+            scale: 1.0,
+            alignment: TextAlignment::Left,
+            vertical_alignment: VerticalAlignment::Bottom,
+        }
+    }
+
+    pub fn build(&self, state: &mut State) -> TextMesh {
+        TextMesh::new(
+            self.text.clone(),
+            self.position,
+            self.font.clone(),
+            self.scale,
+            self.alignment,
+            self.vertical_alignment,
+            state,
+        )
+    }
+
+    pub fn with_scale(&mut self, scale: f32) -> &mut Self {
+        self.scale = scale;
+        self
+    }
+
+    pub fn with_alignment(&mut self, alignment: TextAlignment) -> &mut Self {
+        self.alignment = alignment;
+        self
+    }
+
+    pub fn with_vertical_alignment(&mut self, vertical_alignment: VerticalAlignment) -> &mut Self {
+        self.vertical_alignment = vertical_alignment;
+        self
+    }
+}
+
+pub struct TextMesh {
+    pub text: String,
+    position: Vec3,
+    font: FontAtlas,
+    entities: Vec<(EntityId, Vec3)>,
+    scale: f32,
+    alignment: TextAlignment,
+    vertical_alignment: VerticalAlignment,
 }
 
 impl TextMesh {
@@ -32,6 +99,8 @@ impl TextMesh {
         position: Vec3,
         font: FontAtlas,
         scale: f32,
+        alignment: TextAlignment,
+        vertical_alignment: VerticalAlignment,
         state: &mut State,
     ) -> Self {
         let mut text_mesh = Self {
@@ -40,16 +109,43 @@ impl TextMesh {
             font,
             position,
             scale,
+            alignment,
+            vertical_alignment,
         };
         text_mesh.set_text(text, state);
         text_mesh
     }
+    // todo: builder pattern, scale and alignment as options
+
+    pub fn builder(text: String, position: Vec3, font: FontAtlas) -> TextMeshBuilder {
+        TextMeshBuilder::new(text, position, font)
+    }
 
     fn calculate_entity_position(&self, index: usize) -> Vec3 {
         let character_width = self.font.tile_width as f32 * self.scale;
-        let alignment_offset = -character_width * self.text.len() as f32 / 2.0;
-        // ^^ todo: more alignments!
-        self.position + Vec3::new(alignment_offset + index as f32 * character_width, 0.0, 0.0)
+        let x_offset = match self.alignment {
+            TextAlignment::Left => character_width / 2.0,
+            TextAlignment::Center => -self.measure_text(&self.text) / 2.0,
+            TextAlignment::Right => character_width / 2.0 - self.measure_text(&self.text),
+        };
+        let character_height = self.font.tile_height as f32 * self.scale;
+        let y_offset = match self.vertical_alignment {
+            VerticalAlignment::Top => -character_height,
+            VerticalAlignment::Center => 0.0,
+            VerticalAlignment::Bottom => character_height,
+        };
+
+        self.position + Vec3::new(x_offset + index as f32 * character_width, y_offset, 0.0)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_position(&self) -> Vec3 {
+        self.position
+    }
+
+    pub fn measure_text(&self, text: &String) -> f32 {
+        let character_width = self.font.tile_width as f32 * self.scale;
+        character_width * text.len() as f32
     }
 
     pub fn set_text(&mut self, text: String, state: &mut State) {

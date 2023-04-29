@@ -20,10 +20,10 @@ pub enum Projection {
 
 #[derive(Debug, Copy, Clone)]
 pub struct OrthographicSize {
-    left: f32,
-    right: f32,
-    top: f32,
-    bottom: f32,
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
 }
 
 impl OrthographicSize {

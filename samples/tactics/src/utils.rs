@@ -42,7 +42,6 @@ fn extend_indices(indices: &mut Vec<u16>, offset: u16) {
             .collect::<Vec<u16>>(),
     );
 }
-// TODO: Should we perhaps just have a single global quad mesh in Helia and use scale instead?
 
 pub fn build_quad_mesh(width: f32, height: f32, offset: Vec2, state: &mut State) -> Mesh {
     Mesh::from_arrays(

@@ -116,6 +116,7 @@ impl Game for GameState {
         let mut battle_state = BattleState::new(&self.resources, state);
 
         // 9 slice test
+        // todo: 9 slice struct which can regenerate mesh as appropriate
         let slice_mesh = utils::build_9_slice_mesh(16.0, 16.0, 8.0, 8.0, 2.0, 2.0, 2.0, 2.0, state);
         let mesh_id = state.resources.meshes.insert(slice_mesh);
         let texture = helia::texture::Texture::from_bytes(

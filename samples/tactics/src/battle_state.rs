@@ -68,8 +68,17 @@ impl BattleState {
             rows: 4,
         };
 
-        let text = "Hello World!".to_string();
-        let text_mesh = TextMesh::new(text, Vec3::new(0.0, 16.0, 0.0), atlas, 2.0, state);
+        let text = "Helia Tactics".to_string();
+
+        let text_mesh = TextMesh::builder(
+            text.clone(),
+            Vec3::new(0.0, state.scene.camera.size.top, 0.0),
+            atlas.clone(),
+        )
+        .with_scale(2.0)
+        .with_alignment(TextAlignment::Center)
+        .with_vertical_alignment(VerticalAlignment::Top)
+        .build(state);
 
         for i in 0..3 {
             let dummy_character = Character::create_on_grid(
