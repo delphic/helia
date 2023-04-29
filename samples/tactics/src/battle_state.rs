@@ -6,6 +6,7 @@ use crate::GameResources;
 
 use glam::*;
 use helia::input::VirtualKeyCode;
+use helia::transform::Transform;
 use helia::{entity::*, *};
 
 pub enum BattleStage {
@@ -50,7 +51,7 @@ impl BattleState {
             bg_sprite_ids.0,
             bg_sprite_ids.1,
             InstanceProperties::builder()
-                .with_translation(Vec3::new(0.0, 0.0, -100.0))
+                .with_transform(Transform::from_position(Vec3::new(0.0, 0.0, -100.0)))
                 .build(),
         );
 

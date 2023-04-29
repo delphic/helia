@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use crate::camera::Camera;
 use crate::entity::*;
@@ -7,6 +8,7 @@ use crate::mesh::*;
 use crate::prefab::*;
 use crate::shader::ShaderId;
 use crate::Resources;
+use glam::Mat4;
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
 use slotmap::{DenseSlotMap, SlotMap};
 
@@ -114,6 +116,44 @@ impl Scene {
         // it's current uniform offset... would probably be faster than building a hashmap.
         let mut entities_by_shader = HashMap::new();
 
+        // Calculate world matrices
+        let mut recalculated = HashSet::new();
+        let mut pending = Vec::new();
+        let mut entities = self.entities.keys().collect::<Vec::<_>>();
+        if let Some(id) = entities.pop() {
+            pending.push(id);
+        }
+        while let Some(id) = pending.last() {
+
+            let mut matrix = Mat4::IDENTITY;
+            if let Some(parent) = self.entities[*id].properties.transform.parent {
+                if !recalculated.contains(&parent) {
+                    pending.push(parent);
+                    continue;
+                } else {
+                    matrix = self.entities[parent].properties.transform.world_matrix;
+                }
+            }
+
+            while let Some(id) = pending.pop() {
+                recalculated.insert(id);
+                matrix = self.entities[id].properties.transform.to_local_matrix() * matrix;
+                self.entities[id].properties.transform.world_matrix = matrix;
+            }
+
+            loop {
+                if let Some(id) = entities.pop() {
+                    if !recalculated.contains(&id) {
+                        pending.push(id);
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+
+
         for (id, entity) in self
             .render_objects
             .iter()
@@ -205,10 +245,12 @@ impl Scene {
             let world_pos_a = self.entities[*a]
                 .properties
                 .transform
+                .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
             let world_pos_b = self.entities[*b]
                 .properties
                 .transform
+                .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
             let a_z = camera_transform.transform_point3(world_pos_a).z;
             let b_z = camera_transform.transform_point3(world_pos_b).z;

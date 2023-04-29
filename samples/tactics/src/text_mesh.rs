@@ -3,6 +3,7 @@ use helia::entity::*;
 use helia::material::MaterialId;
 use helia::mesh::MeshId;
 use helia::State;
+use helia::transform::Transform;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -201,12 +202,14 @@ impl TextMesh {
                     self.font.mesh_id,
                     self.font.material_id,
                     InstanceProperties::builder()
-                        .with_translation(position)
+                        .with_transform(Transform::from_position_rotation_scale(
+                            position,
+                            Quat::IDENTITY,
+                            self.scale * Vec3::new(tile_width, tile_height, 1.0)))
                         .with_uv_offset_scale(
                             Vec2::new(x * character_width, y * character_height),
                             Vec2::new(character_width, character_height),
                         )
-                        .with_scale(self.scale * Vec3::new(tile_width, tile_height, 1.0))
                         .build(),
                 );
                 self.entities.push((id, Vec3::ZERO));
@@ -232,12 +235,8 @@ impl TextMesh {
             let mut position = self.position + self.calculate_alignemnt_offset();
             for (i, (entity_id, offset)) in self.entities.iter().enumerate() {
                 if let Some(char) = self.text.chars().nth(i) {
-                    let entity = state.scene.get_entity_mut(*entity_id);
-                    let (scale, rotation, _) =
-                        entity.properties.transform.to_scale_rotation_translation();
-
-                    entity.properties.transform =
-                        Mat4::from_scale_rotation_translation(scale, rotation, position + *offset);
+                    let transform = &mut state.scene.get_entity_mut(*entity_id).properties.transform;
+                    transform.position = position + *offset;
                     position += self.get_char_width(char) * Vec3::X;
                 }
             }
@@ -248,12 +247,9 @@ impl TextMesh {
     pub fn offset_char(&mut self, index: usize, offset: Vec3, state: &mut State) {
         if index < self.entities.len() {
             let (id, prev_offset) = self.entities[index];
-            let entity = state.scene.get_entity_mut(id);
-            let (scale, rotation, translation) =
-                entity.properties.transform.to_scale_rotation_translation();
+            let transform = &mut state.scene.get_entity_mut(id).properties.transform;
             let delta = offset - prev_offset;
-            entity.properties.transform =
-                Mat4::from_scale_rotation_translation(scale, rotation, translation + delta);
+            transform.position += delta;
             self.entities[index] = (id, offset);
         }
     }

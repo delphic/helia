@@ -6,7 +6,7 @@ use helia::{
     mesh::Mesh,
     orbit_camera::*,
     texture::Texture,
-    *,
+    *, transform::Transform,
 };
 
 const CUBE_POSITIONS: &[Vec3] = &[
@@ -120,8 +120,7 @@ impl Game for GameState {
 
         for i in 0..3 {
             let props = InstanceProperties::builder()
-                .with_transform(glam::Mat4::from_rotation_translation(
-                    Quat::IDENTITY,
+                .with_transform(Transform::from_position(
                     -2.0 * (i as f32) * Vec3::Z,
                 ))
                 .build();
@@ -137,16 +136,10 @@ impl Game for GameState {
         }
 
         for (i, cube) in self.cubes.iter().enumerate() {
-            let entity = state.scene.get_entity_mut(*cube);
-            let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
-            let translation = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
-            let rotation =
-                Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
-                    * rotation;
-            entity.properties.transform =
-                Mat4::from_scale_rotation_translation(scale, rotation, translation);
-            // well that's horrible to work with, going to want some kind of Transform struct
-            // exposing position / rotation / scale and build the matrix
+            let transform = &mut state.scene.get_entity_mut(*cube).properties.transform;
+            transform.position = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
+            transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
+                * transform.rotation;
         }
     }
 

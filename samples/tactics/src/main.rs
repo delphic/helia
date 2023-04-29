@@ -220,8 +220,10 @@ impl Game for GameState {
             slice_mesh.mesh,
             material_id,
             InstanceProperties::builder()
-                .with_translation(Vec3::new(0.0, 64.0, 0.0))
-                .with_scale(4.0 * Vec3::ONE)
+                .with_transform(transform::Transform::from_position_rotation_scale(
+                    Vec3::new(0.0, 64.0, 0.0),
+                    Quat::IDENTITY,
+                    4.0 * Vec3::ONE))
                 .build(),
         );
 

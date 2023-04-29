@@ -1,8 +1,8 @@
 use std::{collections::HashMap, any::{Any, TypeId}};
 
-use glam::{Mat4, Quat, Vec2, Vec3};
+use glam::Vec2;
 
-use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
+use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms, transform::Transform};
 
 // This is really a render object at the moment
 // it is also mixing the requirements of the shader (transform / color)
@@ -35,47 +35,8 @@ impl InstancePropertiesBuilder {
         self
     }
 
-    pub fn with_transform(&mut self, transform: Mat4) -> &mut Self {
+    pub fn with_transform(&mut self, transform: Transform) -> &mut Self {
         self.properties.transform = transform;
-        self
-    }
-
-    pub fn with_translation(&mut self, translation: Vec3) -> &mut Self {
-        let (scale, rotation, _) = self.properties.transform.to_scale_rotation_translation();
-        self.properties.transform =
-            Mat4::from_scale_rotation_translation(scale, rotation, translation);
-        self
-    }
-
-    pub fn with_rotation(&mut self, rotation: Quat) -> &mut Self {
-        let (scale, _, translation) = self.properties.transform.to_scale_rotation_translation();
-        self.properties.transform =
-            Mat4::from_scale_rotation_translation(scale, rotation, translation);
-        self
-    }
-
-    pub fn with_scale(&mut self, scale: Vec3) -> &mut Self {
-        let (_, rotation, translation) = self.properties.transform.to_scale_rotation_translation();
-        self.properties.transform =
-            Mat4::from_scale_rotation_translation(scale, rotation, translation);
-        self
-    }
-
-    pub fn with_rotation_translation(&mut self, rotation: Quat, translation: Vec3) -> &mut Self {
-        let (scale, _, _) = self.properties.transform.to_scale_rotation_translation();
-        self.properties.transform =
-            Mat4::from_scale_rotation_translation(scale, rotation, translation);
-        self
-    }
-
-    pub fn with_scale_rotation_translation(
-        &mut self,
-        scale: Vec3,
-        rotation: Quat,
-        translation: Vec3,
-    ) -> &mut Self {
-        self.properties.transform =
-            Mat4::from_scale_rotation_translation(scale, rotation, translation);
         self
     }
 
@@ -98,7 +59,7 @@ impl InstancePropertiesBuilder {
 
 #[derive(Copy, Clone)]
 pub struct InstanceProperties {
-    pub transform: Mat4,
+    pub transform: Transform,
     pub color: wgpu::Color,
     pub uv_offset: Vec2,
     pub uv_scale: Vec2,
@@ -107,7 +68,7 @@ pub struct InstanceProperties {
 impl Default for InstanceProperties {
     fn default() -> Self {
         Self {
-            transform: Mat4::from_translation(Vec3::ZERO),
+            transform: Transform::default(),
             color: wgpu::Color::WHITE,
             uv_offset: Vec2::ZERO,
             uv_scale: Vec2::ONE,

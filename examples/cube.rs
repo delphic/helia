@@ -126,16 +126,11 @@ impl Game for GameState {
             camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
         if let Some(cube) = self.cube {
-            let entity = state.scene.get_entity_mut(cube);
-            let (scale, rotation, _) = entity.properties.transform.to_scale_rotation_translation();
-            let translation = Vec3::new(state.time.total_elapsed.sin(), 0.0, 0.0);
-            let rotation =
-                Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
-                    * rotation;
-            entity.properties.transform =
-                Mat4::from_scale_rotation_translation(scale, rotation, translation);
-            // well that's horrible to work with, going to want some kind of Transform struct
-            // exposing position / rotation / scale and build the matrix
+            let transform = &mut state.scene.get_entity_mut(cube).properties.transform;
+            
+            transform.position = Vec3::new(state.time.total_elapsed.sin(), 0.0, 0.0);
+            transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
+                    * transform.rotation;
         }
     }
 

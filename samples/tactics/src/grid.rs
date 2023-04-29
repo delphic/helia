@@ -2,7 +2,7 @@ use glam::*;
 use helia::{
     entity::{EntityId, InstanceProperties},
     prefab::PrefabId,
-    Color, State,
+    Color, State, transform::Transform,
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -35,11 +35,12 @@ impl Grid {
             let id = state.scene.add_instance(
                 prefab_id,
                 InstanceProperties::builder()
-                    .with_translation(
+                    .with_transform(
+                        Transform::from_position(
                         self.get_translation_for_position(position)
                             - 16.0 * Vec3::Y
                             - 32.0 * Vec3::Z,
-                    ) // could sort this y offset with better anchoring and base offset
+                    )) // could sort this y offset with better anchoring and base offset
                     .with_color(Color::TRANSPARENT) // Visibility rather than transparent would be nice
                     .build(),
             );

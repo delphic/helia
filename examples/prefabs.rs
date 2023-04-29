@@ -7,7 +7,7 @@ use helia::{
     orbit_camera::*,
     shader::Vertex,
     texture::Texture,
-    *,
+    *, transform::Transform,
 };
 
 const VERTICES: &[Vertex] = &[
@@ -103,7 +103,7 @@ impl Game for GameState {
                     };
 
                     InstanceProperties::builder()
-                        .with_rotation_translation(rotation, position)
+                        .with_transform(Transform::from_position_rotation(position, rotation))
                         .build()
                 })
             })

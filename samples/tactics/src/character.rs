@@ -5,7 +5,7 @@ use helia::{
     entity::{EntityId, InstanceProperties},
     material::MaterialId,
     mesh::MeshId,
-    *,
+    *, transform::Transform,
 };
 
 use crate::grid::*;
@@ -31,7 +31,7 @@ impl Character {
             mesh_id,
             material_id,
             InstanceProperties::builder()
-                .with_translation(grid.get_translation_for_position(position))
+                .with_transform(Transform::from_position(grid.get_translation_for_position(position)))
                 .build(),
         );
         grid.occupancy.insert(position);
@@ -58,9 +58,8 @@ impl Character {
 
     pub fn perform_move(&mut self, delta: IVec2, grid: &Grid, state: &mut State) {
         self.position += delta;
-        let entity = state.scene.get_entity_mut(self.sprite);
-        entity.properties.transform =
-            Mat4::from_translation(grid.get_translation_for_position(self.position));
+        let transform = &mut state.scene.get_entity_mut(self.sprite).properties.transform;
+        transform.position = grid.get_translation_for_position(self.position);
     }
 
     pub fn flip_visual(&self, state: &mut State) {

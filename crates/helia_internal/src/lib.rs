@@ -21,6 +21,7 @@ pub mod input;
 pub mod prefab;
 pub mod scene;
 pub mod time;
+pub mod transform;
 
 pub mod orbit_camera;
 
