@@ -93,11 +93,23 @@ impl GameState {
                 state,
             ),
         );
+        self.resources.insert(
+            "mini_font".to_string(),
+            utils::build_sprite_resources(
+                "mini_font",
+                22.0 * 6.0, // characters are 6 pixels wide, 22 characters per row
+                4.0 * 8.0,  // characters are 8 pixels high, 4 rows in the atlas
+                Vec2::new(0.0, 0.0),
+                include_bytes!("../assets/mini-font.png"),
+                state,
+            ),
+        );
     }
 }
 
 impl Game for GameState {
     fn init(&mut self, state: &mut State) {
+        let pixel_ratio = 1;
         let camera = Camera {
             eye: (0.0, 0.0, 2.0).into(),
             target: (0.0, 0.0, 0.0).into(),
@@ -108,7 +120,8 @@ impl Game for GameState {
             far: 1000.0,
             clear_color: Color::BLACK,
             projection: camera::Projection::Orthographic,
-            size: OrthographicSize::from_size(state.size),
+            size: OrthographicSize::from_size_scale(state.size, pixel_ratio),
+            pixel_ratio: pixel_ratio as f32,
         };
 
         self.load_resources(state);

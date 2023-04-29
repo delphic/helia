@@ -90,11 +90,13 @@ pub struct Camera {
     pub size: OrthographicSize,
     pub clear_color: wgpu::Color,
     pub projection: Projection,
+    pub pixel_ratio: f32,
 }
 // todo: move from eye / target to position / rotation
 
 impl Camera {
     pub fn build_view_projection_matrix(&self) -> Mat4 {
+        let scale = Mat4::from_scale(self.pixel_ratio * Vec3::ONE);
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
         let proj = match self.projection {
             Projection::Perspective => {
@@ -110,7 +112,7 @@ impl Camera {
             ),
             // todo: provide functions for orthographic and perspective camera create methods
         };
-        OPENGL_TO_WGPU_MATRIX * proj * view
+        OPENGL_TO_WGPU_MATRIX * proj * view * scale
     }
 }
 
@@ -127,6 +129,7 @@ impl Default for Camera {
             size: OrthographicSize::default(),
             clear_color: wgpu::Color::BLACK,
             projection: Projection::Perspective,
+            pixel_ratio: 1.0,
         }
     }
 }

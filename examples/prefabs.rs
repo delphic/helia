@@ -67,6 +67,7 @@ impl Game for GameState {
             },
             projection: camera::Projection::Perspective,
             size: OrthographicSize::default(),
+            pixel_ratio: 1.0,
         };
 
         state.scene.camera = camera;

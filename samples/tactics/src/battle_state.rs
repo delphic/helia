@@ -67,15 +67,24 @@ impl BattleState {
             columns: 22,
             rows: 4,
         };
+        let material_id = resources[&"mini_font".to_string()].1;
+        let mini_atlas = FontAtlas {
+            mesh_id,
+            material_id,
+            char_map: "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuvWXYZ0123456789_.,!?:; wxyz()[]{}'\"/\\|=-+*<>%".to_string(),
+            tile_width: 6,
+            tile_height: 8,
+            columns: 22,
+            rows: 4,
+        };
 
         let text = "Helia Tactics".to_string();
 
         let text_mesh = TextMesh::builder(
             text.clone(),
             Vec3::new(0.0, state.scene.camera.size.top, 0.0),
-            atlas.clone(),
+            mini_atlas,
         )
-        .with_scale(2.0)
         .with_alignment(TextAlignment::Center)
         .with_vertical_alignment(VerticalAlignment::Top)
         .build(state);
