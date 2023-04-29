@@ -199,10 +199,9 @@ pub fn build_sprite_resources(
     sprite_bytes: &[u8],
     state: &mut State,
 ) -> (MeshId, MaterialId) {
-    let material_id = build_material(sprite_bytes, state);
-
     let quad_mesh = build_quad_mesh(width, height, offset, state);
     let mesh_id = state.resources.meshes.insert(quad_mesh);
+    let material_id = build_material(sprite_bytes, state);
     (mesh_id, material_id)
 }
 
