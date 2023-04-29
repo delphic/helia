@@ -23,8 +23,7 @@ pub struct GameTexture<'a> {
 
 impl<'a> GameTexture<'a> {
     pub fn build_texture(&self, state: &mut State) -> texture::Texture {
-        texture::Texture::from_bytes(&state.device, &state.queue, self.bytes)
-            .unwrap()
+        texture::Texture::from_bytes(&state.device, &state.queue, self.bytes).unwrap()
     }
 }
 
@@ -125,10 +124,7 @@ impl GameState {
         let char_map = "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuvWXYZ0123456789_.,!?:; wxyz()[]{}'\"/\\|=-+*<>%".to_string();
 
         let mesh_id = state.resources.meshes.insert(quad_mesh);
-        let material_id = utils::build_material(
-            include_bytes!("../assets/micro-font.png"),
-            state,
-        );
+        let material_id = utils::build_material(include_bytes!("../assets/micro-font.png"), state);
 
         let micro_atlas = FontAtlas {
             mesh_id,
@@ -144,10 +140,7 @@ impl GameState {
             .fonts
             .insert("micro".to_string(), micro_atlas);
 
-        let material_id = utils::build_material(
-            include_bytes!("../assets/mini-font.png"),
-            state,
-        );
+        let material_id = utils::build_material(include_bytes!("../assets/mini-font.png"), state);
 
         let mut custom_widths = HashMap::new();
         custom_widths.insert(5, "abcdeghknopqstuvxyz.,!?:;=".to_string());
@@ -217,7 +210,7 @@ impl Game for GameState {
         let texture = helia::texture::Texture::from_bytes(
             &state.device,
             &state.queue,
-            include_bytes!("../assets/slice.png")
+            include_bytes!("../assets/slice.png"),
         )
         .unwrap();
         let texture_id = state.resources.textures.insert(texture);
