@@ -1,12 +1,11 @@
-use crate::{shader::ShaderId, texture, State};
+use crate::{shader::ShaderId, texture::TextureId, State};
 
 slotmap::new_key_type! { pub struct MaterialId; }
 
 pub struct Material {
     pub shader: ShaderId,
+    pub texture: TextureId,
     pub diffuse_bind_group: wgpu::BindGroup,
-    #[allow(dead_code)]
-    diffuse_texture: texture::Texture,
 }
 // todo: we don't want the bind group info in the public types, but that requires us to have
 // an internal representation, as we can't create a bind group until we have the texture,
@@ -28,7 +27,9 @@ pub struct Material {
 // we should investigate this before we attempt to extend our existing scene structure which does track
 // the current bindings, although only at the mesh and material level (where as really it should be per bind group)
 impl Material {
-    pub fn new(shader: ShaderId, diffuse_texture: texture::Texture, state: &State) -> Self {
+    pub fn new(shader: ShaderId, texture: TextureId, state: &State) -> Self {
+        let id = texture;
+        let texture = &state.resources.textures[id];
         // todo: would be nice to provide an overload that takes a enum of BuildInShaders
         // and that we keep track of enum -> ShaderId, that way the user only has to worry about
         // shader ids for shaders they've created
@@ -38,19 +39,19 @@ impl Material {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
                 },
             ],
             label: Some("diffuse_bind_group"),
         });
         Self {
             shader,
+            texture: id,
             diffuse_bind_group,
-            diffuse_texture,
         }
     }
 

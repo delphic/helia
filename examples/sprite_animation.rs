@@ -73,7 +73,8 @@ impl Game for GameState {
             sprite_bytes,
         )
         .unwrap();
-        let lena_material = helia::material::Material::new(state.shaders.sprite, texture, &state);
+        let texture_id = state.resources.textures.insert(texture);
+        let lena_material = helia::material::Material::new(state.shaders.sprite, texture_id, &state);
         let lena_material_id = state.resources.materials.insert(lena_material);
 
         let quad_mesh = Mesh::from_arrays(QUAD_POSITIONS, QUAD_UVS, QUAD_INDICES, &state.device);

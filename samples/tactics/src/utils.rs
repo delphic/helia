@@ -208,6 +208,7 @@ pub fn build_sprite_resources(
 
 pub fn build_material(sprite_bytes: &[u8], state: &mut State) -> MaterialId {
     let texture = Texture::from_bytes(&state.device, &state.queue, sprite_bytes).unwrap();
-    let material = Material::new(state.shaders.sprite, texture, &state);
+    let texture_id = state.resources.textures.insert(texture);
+    let material = Material::new(state.shaders.sprite, texture_id, &state);
     state.resources.materials.insert(material)
 }

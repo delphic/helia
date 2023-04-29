@@ -212,7 +212,8 @@ impl Game for GameState {
             include_bytes!("../assets/slice.png")
         )
         .unwrap();
-        let material = helia::material::Material::new(state.shaders.sprite, texture, &state);
+        let texture_id = state.resources.textures.insert(texture);
+        let material = helia::material::Material::new(state.shaders.sprite, texture_id, &state);
         let material_id = state.resources.materials.insert(material);
         state.scene.add_entity(
             slice_mesh.mesh,

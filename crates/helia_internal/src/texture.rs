@@ -1,6 +1,8 @@
 use anyhow::*;
 use image::GenericImageView;
 
+slotmap::new_key_type! { pub struct TextureId; }
+
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,

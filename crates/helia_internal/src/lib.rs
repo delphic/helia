@@ -12,6 +12,7 @@ use material::*;
 use mesh::*;
 use scene::*;
 use shader::*;
+use texture::*;
 
 pub type Color = wgpu::Color;
 
@@ -33,6 +34,7 @@ pub struct Resources {
     pub meshes: SlotMap<MeshId, Mesh>,
     pub materials: SlotMap<MaterialId, Material>,
     pub shaders: SlotMap<ShaderId, Shader>,
+    pub textures: SlotMap<TextureId, Texture>,
 }
 
 impl Resources {
@@ -41,6 +43,7 @@ impl Resources {
             meshes: SlotMap::with_key(),
             materials: SlotMap::with_key(),
             shaders: SlotMap::with_key(),
+            textures: SlotMap::with_key(),
         }
     }
 }

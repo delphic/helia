@@ -110,7 +110,8 @@ impl Game for GameState {
         // Makin' Textures
         let texture_bytes = include_bytes!("../assets/crate.png");
         let texture = Texture::from_bytes(&device, &queue, texture_bytes).unwrap();
-        let material = Material::new(state.shaders.unlit_textured, texture, state);
+        let texture_id = state.resources.textures.insert(texture);
+        let material = Material::new(state.shaders.unlit_textured, texture_id, state);
         let material_id = state.resources.materials.insert(material);
 
         let mesh = Mesh::from_arrays(CUBE_POSITIONS, CUBE_UVS, CUBE_INDICES, &device);

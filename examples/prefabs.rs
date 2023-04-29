@@ -75,11 +75,13 @@ impl Game for GameState {
         // Makin' Textures
         let texture_bytes = include_bytes!("../assets/lena_on_black.png");
         let texture = Texture::from_bytes(&device, &queue, texture_bytes).unwrap();
-        let black_material = Material::new(state.shaders.unlit_textured, texture, state);
+        let texture_id = state.resources.textures.insert(texture);
+        let black_material = Material::new(state.shaders.unlit_textured, texture_id, state);
 
         let texture_bytes = include_bytes!("../assets/lena_on_rink.png");
         let texture = Texture::from_bytes(&device, &queue, texture_bytes).unwrap();
-        let rink_material = Material::new(state.shaders.unlit_textured, texture, state);
+        let texture_id = state.resources.textures.insert(texture);
+        let rink_material = Material::new(state.shaders.unlit_textured, texture_id, state);
 
         let mesh = Mesh::new(VERTICES, INDICES, &device);
         let instances = (0..NUM_INSTANCES_PER_ROW)
