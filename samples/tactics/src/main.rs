@@ -2,12 +2,14 @@ mod battle_state;
 mod character;
 mod grid;
 mod player;
+mod slice_sprite;
 mod text_mesh;
 mod utils;
 
 use std::collections::HashMap;
 
 use battle_state::*;
+use slice_sprite::*;
 
 use glam::*;
 use helia::{camera::*, entity::InstanceProperties, material::MaterialId, mesh::MeshId, *};
@@ -116,9 +118,18 @@ impl Game for GameState {
         let mut battle_state = BattleState::new(&self.resources, state);
 
         // 9 slice test
-        // todo: 9 slice struct which can regenerate mesh as appropriate
-        let slice_mesh = utils::build_9_slice_mesh(16.0, 16.0, 8.0, 8.0, 2.0, 2.0, 2.0, 2.0, state);
-        let mesh_id = state.resources.meshes.insert(slice_mesh);
+        let mut slice_mesh = SliceSpriteMesh::new(
+            Vec2::new(16.0, 16.0),
+            SliceConfig {
+                width: 8.0,
+                height: 8.0,
+                top: 2.0,
+                right: 2.0,
+                bottom: 2.0,
+                left: 2.0,
+            },
+            state,
+        );
         let texture = helia::texture::Texture::from_bytes(
             &state.device,
             &state.queue,
@@ -129,13 +140,15 @@ impl Game for GameState {
         let material = helia::material::Material::new(state.shaders.sprite, texture, &state);
         let material_id = state.resources.materials.insert(material);
         state.scene.add_entity(
-            mesh_id,
+            slice_mesh.mesh,
             material_id,
             InstanceProperties::builder()
                 .with_translation(Vec3::new(0.0, 64.0, 0.0))
-                .with_scale(8.0 * Vec3::ONE)
+                .with_scale(4.0 * Vec3::ONE)
                 .build(),
         );
+
+        slice_mesh.resize(Vec2::new(32.0, 16.0), state);
 
         battle_state.enter(state);
         self.stage = Stage::Battle {
