@@ -45,7 +45,7 @@ impl OrthographicSize {
         }
     }
 
-    pub fn from_ratio_height(height: f32, ratio: f32) -> Self {
+    pub fn from_ratio_height(ratio: f32, height: f32) -> Self {
         Self::from_width_height(ratio * height, height)
     }
 
