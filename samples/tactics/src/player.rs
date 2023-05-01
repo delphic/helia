@@ -38,13 +38,13 @@ impl Player {
             requested_delta += IVec2::Y;
         }
 
-        if requested_delta.x != 0 && requested_delta.x.signum() != self.facing.x {
-            character.flip_visual(state);
-            self.facing.x = requested_delta.x.signum();
-        }
-
         if delta != IVec2::ZERO {
-            character.perform_move(delta, grid, state);
+            if requested_delta.x != 0 && requested_delta.x.signum() != self.facing.x {
+                character.flip_visual(state);
+                self.facing.x = requested_delta.x.signum();
+            } else {
+                character.perform_move(delta, grid, state);
+            }
         }
 
         if state.input.key_down(VirtualKeyCode::Z) {
