@@ -11,7 +11,8 @@ repository = "https://github.com/delphic/helia"
 members = [ "crates/*", "examples/*", "samples/*" ]
 
 [dependencies]
-helia_internal = { path = "crates/helia_internal" }
+core = { path = "crates/core" }
+ui = { path = "crates/ui" }
 
 [dev-dependencies]
 pollster = "0.3"

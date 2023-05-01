@@ -3,12 +3,12 @@ mod character;
 mod grid;
 mod player;
 mod slice_sprite;
-mod text_mesh;
 mod utils;
 
 use std::collections::HashMap;
 
 use battle_state::*;
+use helia::{atlas::Atlas, font::FontAtlas};
 use slice_sprite::*;
 
 use glam::*;
@@ -260,7 +260,6 @@ pub async fn run() {
         .await;
 }
 
-use text_mesh::{Atlas, FontAtlas};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 

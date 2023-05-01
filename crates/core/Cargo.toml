@@ -1,5 +1,5 @@
 [package]
-name = "helia_internal"
+name = "core"
 version = "0.0.0"
 edition = "2021"
 description = "A Radiant Game Engine"

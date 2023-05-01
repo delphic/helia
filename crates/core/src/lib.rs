@@ -25,6 +25,7 @@ pub mod transform;
 
 pub mod orbit_camera;
 
+pub mod atlas;
 pub mod camera;
 pub mod material;
 pub mod mesh;

@@ -1,72 +1,8 @@
+use core::entity::*;
+use core::State;
 use glam::*;
-use helia::entity::*;
-use helia::material::MaterialId;
-use helia::mesh::MeshId;
-use helia::transform::Transform;
-use helia::State;
-use std::collections::HashMap;
 
-#[derive(Clone, Copy, Debug)]
-pub struct Atlas {
-    pub mesh_id: MeshId, // assumed center anchored 1x1 quad
-    pub material_id: MaterialId,
-    pub tile_width: u16,
-    pub tile_height: u16,
-    pub columns: u16,
-    pub rows: u16,
-}
-
-impl Atlas {
-    pub fn uv_offset_scale(&self, index: usize) -> (Vec2, Vec2) {
-        let x = (index % self.columns as usize) as f32;
-        let y = (index / self.columns as usize) as f32;
-        let tile_uv_width = (self.columns as f32).recip();
-        let tile_uv_height = (self.rows as f32).recip();
-        (
-            Vec2::new(x * tile_uv_width, y * tile_uv_height),
-            Vec2::new(tile_uv_width, tile_uv_height),
-        )
-    }
-
-    pub fn tile_size(&self) -> Vec2 {
-        Vec2::new(self.tile_width as f32, self.tile_height as f32)
-    }
-
-    pub fn instance_properties(
-        &self,
-        index: usize,
-        position: Vec3,
-        scale: f32,
-    ) -> InstanceProperties {
-        let (uv_offset, uv_scale) = self.uv_offset_scale(index);
-        InstanceProperties::builder()
-            .with_transform(Transform::from_position_scale(
-                position,
-                scale * self.tile_size().extend(1.0),
-            ))
-            .with_uv_offset_scale(uv_offset, uv_scale)
-            .build()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct FontAtlas {
-    pub atlas: Atlas, // atlas mesh assumed center anchored 1x1 quad
-    pub char_map: String,
-    pub custom_char_widths: Option<HashMap<char, u16>>,
-}
-
-impl FontAtlas {
-    pub fn build_char_widths(width_to_chars: HashMap<u16, String>) -> HashMap<char, u16> {
-        let mut result = HashMap::new();
-        for (width, str) in width_to_chars {
-            for char in str.chars() {
-                result.insert(char, width);
-            }
-        }
-        result
-    }
-}
+use crate::font::*;
 
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
@@ -166,7 +102,6 @@ impl TextMesh {
         text_mesh.set_text(text, state);
         text_mesh
     }
-    // todo: builder pattern, scale and alignment as options
 
     pub fn builder(text: String, position: Vec3, font: FontAtlas) -> TextMeshBuilder {
         TextMeshBuilder::new(text, position, font)
