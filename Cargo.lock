@@ -1445,6 +1445,7 @@ dependencies = [
  "core",
  "glam",
  "log",
+ "primitives",
 ]
 
 [[package]]

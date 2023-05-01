@@ -10,3 +10,4 @@ license = "MIT OR Apache-2.0"
 glam = "0.23"
 log = "0.4"
 core = { path = "../core" }
+primitives = { path = "../primitives" }

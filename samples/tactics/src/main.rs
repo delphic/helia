@@ -2,14 +2,13 @@ mod battle_state;
 mod character;
 mod grid;
 mod player;
-mod slice_sprite;
 mod utils;
 
 use std::collections::HashMap;
 
 use battle_state::*;
-use helia::{atlas::Atlas, font::FontAtlas};
-use slice_sprite::*;
+use helia::ui::*;
+use helia::{atlas::Atlas, ui::font::FontAtlas};
 
 use glam::*;
 use helia::primitives::*;
