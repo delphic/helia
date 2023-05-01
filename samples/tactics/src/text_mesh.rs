@@ -6,20 +6,55 @@ use helia::transform::Transform;
 use helia::State;
 use std::collections::HashMap;
 
-#[derive(Clone)]
-pub struct FontAtlas {
+#[derive(Clone, Copy, Debug)]
+pub struct Atlas {
     pub mesh_id: MeshId, // assumed center anchored 1x1 quad
     pub material_id: MaterialId,
-    pub char_map: String,
     pub tile_width: u16,
     pub tile_height: u16,
     pub columns: u16,
     pub rows: u16,
+}
+
+impl Atlas {
+    pub fn uv_offset_scale(&self, index: usize) -> (Vec2, Vec2) {
+        let x = (index % self.columns as usize) as f32;
+        let y = (index / self.columns as usize) as f32;
+        let tile_uv_width = (self.columns as f32).recip();
+        let tile_uv_height = (self.rows as f32).recip();
+        (
+            Vec2::new(x * tile_uv_width, y * tile_uv_height),
+            Vec2::new(tile_uv_width, tile_uv_height),
+        )
+    }
+
+    pub fn tile_size(&self) -> Vec2 {
+        Vec2::new(self.tile_width as f32, self.tile_height as f32)
+    }
+
+    pub fn instance_properties(
+        &self,
+        index: usize,
+        position: Vec3,
+        scale: f32,
+    ) -> InstanceProperties {
+        let (uv_offset, uv_scale) = self.uv_offset_scale(index);
+        InstanceProperties::builder()
+            .with_transform(Transform::from_position_scale(
+                position,
+                scale * self.tile_size().extend(1.0),
+            ))
+            .with_uv_offset_scale(uv_offset, uv_scale)
+            .build()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct FontAtlas {
+    pub atlas: Atlas, // atlas mesh assumedcenter anchored 1x1 quad
+    pub char_map: String,
     pub custom_char_widths: Option<HashMap<char, u16>>,
 }
-// ^^ this could almost be any atlas if you replaced the char_map with id -> index map
-// though we're likely to add individual char meta data so maybe hold off on that
-// though maybe that means we want struct Font that contains an Atlas struct
 
 impl FontAtlas {
     pub fn build_char_widths(width_to_chars: HashMap<u16, String>) -> HashMap<char, u16> {
@@ -138,13 +173,13 @@ impl TextMesh {
     }
 
     fn calculate_alignemnt_offset(&self) -> Vec3 {
-        let character_width = self.font.tile_width as f32 * self.scale;
+        let character_width = self.font.atlas.tile_width as f32 * self.scale;
         let x_offset = match self.alignment {
             TextAlignment::Left => character_width / 2.0,
             TextAlignment::Center => -self.measure_text(&self.text) / 2.0,
             TextAlignment::Right => character_width / 2.0 - self.measure_text(&self.text),
         };
-        let character_height = self.font.tile_height as f32 * self.scale;
+        let character_height = self.font.atlas.tile_height as f32 * self.scale;
         let y_offset = match self.vertical_alignment {
             VerticalAlignment::Top => -character_height,
             VerticalAlignment::Center => 0.0,
@@ -160,7 +195,7 @@ impl TextMesh {
                 return *width as f32 * self.scale;
             }
         }
-        self.font.tile_width as f32 * self.scale
+        self.font.atlas.tile_width as f32 * self.scale
     }
 
     #[allow(dead_code)]
@@ -171,11 +206,15 @@ impl TextMesh {
     pub fn measure_text(&self, text: &String) -> f32 {
         if let Some(custom_widths) = &self.font.custom_char_widths {
             text.chars()
-                .map(|char| custom_widths.get(&char).unwrap_or(&self.font.tile_width))
+                .map(|char| {
+                    custom_widths
+                        .get(&char)
+                        .unwrap_or(&self.font.atlas.tile_width)
+                })
                 .map(|w| *w as f32 * self.scale)
                 .sum()
         } else {
-            self.font.tile_width as f32 * self.scale * text.len() as f32
+            self.font.atlas.tile_width as f32 * self.scale * text.len() as f32
         }
     }
 
@@ -191,39 +230,23 @@ impl TextMesh {
 
         self.text = text;
 
-        let tile_width = self.font.tile_width as f32;
-        let tile_height = self.font.tile_height as f32;
-        let character_width = (self.font.columns as f32).recip(); // in uv coords
-        let character_height = (self.font.rows as f32).recip(); // in uv coords
-
         let mut position = self.position + self.calculate_alignemnt_offset();
         let chars = self.text.chars();
         // this is probably terrible practice for anything other than ascii
         for (i, char) in chars.enumerate() {
             if let Some(index) = self.font.char_map.find(char) {
-                let x = (index % 22) as f32;
-                let y = (index / 22) as f32;
-
                 if i < self.entities.len() {
                     let entity = state.scene.get_entity_mut(self.entities[i].0);
                     entity.properties.transform.position = position;
-                    entity.properties.uv_offset =
-                        Vec2::new(x * character_width, y * character_height);
-                    self.entities[i].1 = Vec3::ZERO;
+                    entity.properties.uv_offset = self.font.atlas.uv_offset_scale(index).0;
+                    self.entities[i].1 = Vec3::ZERO; // reset offset
                 } else {
                     let id = state.scene.add_entity(
-                        self.font.mesh_id,
-                        self.font.material_id,
-                        InstanceProperties::builder()
-                            .with_transform(Transform::from_position_scale(
-                                position,
-                                self.scale * Vec3::new(tile_width, tile_height, 1.0),
-                            ))
-                            .with_uv_offset_scale(
-                                Vec2::new(x * character_width, y * character_height),
-                                Vec2::new(character_width, character_height),
-                            )
-                            .build(),
+                        self.font.atlas.mesh_id,
+                        self.font.atlas.material_id,
+                        self.font
+                            .atlas
+                            .instance_properties(index, position, self.scale),
                     );
                     self.entities.push((id, Vec3::ZERO));
                 }

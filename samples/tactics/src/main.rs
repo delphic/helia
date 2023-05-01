@@ -126,19 +126,19 @@ impl GameState {
         let mesh_id = state.resources.meshes.insert(quad_mesh);
         let material_id = utils::build_material(include_bytes!("../assets/micro-font.png"), state);
 
-        let micro_atlas = FontAtlas {
-            mesh_id,
-            material_id,
+        let micro_font = FontAtlas {
+            atlas: Atlas {
+                mesh_id,
+                material_id,
+                tile_width: 4,
+                tile_height: 6,
+                columns: 22,
+                rows: 4,
+            },
             char_map: char_map.clone(),
-            tile_width: 4,
-            tile_height: 6,
-            columns: 22,
-            rows: 4,
             custom_char_widths: None,
         };
-        self.resources
-            .fonts
-            .insert("micro".to_string(), micro_atlas);
+        self.resources.fonts.insert("micro".to_string(), micro_font);
 
         let material_id = utils::build_material(include_bytes!("../assets/mini-font.png"), state);
 
@@ -148,17 +148,19 @@ impl GameState {
         custom_widths.insert(3, "jl()[]".to_string());
         custom_widths.insert(2, "i".to_string());
 
-        let mini_atlas = FontAtlas {
-            mesh_id,
-            material_id,
+        let mini_font = FontAtlas {
+            atlas: Atlas {
+                mesh_id,
+                material_id,
+                tile_width: 6,
+                tile_height: 8,
+                columns: 22,
+                rows: 4,
+            },
             char_map: char_map.clone(),
-            tile_width: 6,
-            tile_height: 8,
-            columns: 22,
-            rows: 4,
             custom_char_widths: Some(FontAtlas::build_char_widths(custom_widths)),
         };
-        self.resources.fonts.insert("mini".to_string(), mini_atlas);
+        self.resources.fonts.insert("mini".to_string(), mini_font);
 
         self.resources.materials.insert(
             "white-sq".to_string(),
@@ -258,7 +260,7 @@ pub async fn run() {
         .await;
 }
 
-use text_mesh::FontAtlas;
+use text_mesh::{Atlas, FontAtlas};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
