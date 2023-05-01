@@ -4,15 +4,13 @@ mod grid;
 mod player;
 mod utils;
 
-use std::collections::HashMap;
-
 use battle_state::*;
-use helia::ui::*;
-use helia::{atlas::Atlas, ui::font::FontAtlas};
-
 use glam::*;
-use helia::primitives::*;
-use helia::{camera::*, entity::InstanceProperties, material::MaterialId, mesh::MeshId, *};
+use helia::{
+    atlas::Atlas, camera::*, entity::InstanceProperties, material::MaterialId, mesh::MeshId,
+    primitives::*, ui::font::FontAtlas, ui::*, *,
+};
+use std::collections::HashMap;
 
 pub struct GameTexture<'a> {
     pub name: String,
