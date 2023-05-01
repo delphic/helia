@@ -51,7 +51,7 @@ impl Atlas {
 
 #[derive(Clone, Debug)]
 pub struct FontAtlas {
-    pub atlas: Atlas, // atlas mesh assumedcenter anchored 1x1 quad
+    pub atlas: Atlas, // atlas mesh assumed center anchored 1x1 quad
     pub char_map: String,
     pub custom_char_widths: Option<HashMap<char, u16>>,
 }
