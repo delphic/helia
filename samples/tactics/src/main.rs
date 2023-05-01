@@ -12,6 +12,7 @@ use helia::{atlas::Atlas, font::FontAtlas};
 use slice_sprite::*;
 
 use glam::*;
+use helia::primitives::*;
 use helia::{camera::*, entity::InstanceProperties, material::MaterialId, mesh::MeshId, *};
 
 pub struct GameTexture<'a> {
@@ -120,7 +121,7 @@ impl GameState {
             ),
         );
 
-        let quad_mesh = crate::utils::build_quad_mesh(1.0, 1.0, Vec2::ZERO, state);
+        let quad_mesh = quad::centered_mesh(state);
         let char_map = "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuvWXYZ0123456789_.,!?:; wxyz()[]{}'\"/\\|=-+*<>%".to_string();
 
         let mesh_id = state.resources.meshes.insert(quad_mesh);

@@ -13,6 +13,7 @@ members = [ "crates/*", "examples/*", "samples/*" ]
 [dependencies]
 core = { path = "crates/core" }
 ui = { path = "crates/ui" }
+primitives = { path = "crates/primitives" }
 
 [dev-dependencies]
 pollster = "0.3"

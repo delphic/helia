@@ -2,7 +2,6 @@ use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
     entity::*,
-    mesh::Mesh,
     *,
 };
 
@@ -43,19 +42,6 @@ mod aseprite {
 
 use self::aseprite::*;
 
-const QUAD_POSITIONS: &[Vec3] = &[
-    Vec3::new(-0.5, -0.5, 0.0),
-    Vec3::new(0.5, -0.5, 0.0),
-    Vec3::new(0.5, 0.5, 0.0),
-    Vec3::new(-0.5, 0.5, 0.0),
-];
-const QUAD_UVS: &[Vec2] = &[
-    Vec2::new(0.0, 1.0),
-    Vec2::new(1.0, 1.0),
-    Vec2::new(1.0, 0.0),
-    Vec2::new(0.0, 0.0),
-];
-const QUAD_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 pub struct GameState {
     sprite_data: AsepriteAnimation,
     time_in_frame: f32,
@@ -74,7 +60,7 @@ impl Game for GameState {
             helia::material::Material::new(state.shaders.sprite, texture_id, &state);
         let lena_material_id = state.resources.materials.insert(lena_material);
 
-        let quad_mesh = Mesh::from_arrays(QUAD_POSITIONS, QUAD_UVS, QUAD_INDICES, &state.device);
+        let quad_mesh = helia::primitives::quad::centered_mesh(state);
         let mesh_id = state.resources.meshes.insert(quad_mesh);
 
         let ratio = state.size.width as f32 / state.size.height as f32;
