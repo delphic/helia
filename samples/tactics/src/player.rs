@@ -12,6 +12,7 @@ impl Player {
         let character = &mut self.character;
         let mut delta = IVec2::ZERO;
         let mut requested_delta = IVec2::ZERO;
+
         if state.input.key_down(VirtualKeyCode::Left) {
             if character.is_move_valid(IVec2::NEG_X) {
                 delta += IVec2::NEG_X;
@@ -25,26 +26,27 @@ impl Player {
             requested_delta += IVec2::X;
         }
 
-        if state.input.key_down(VirtualKeyCode::Up) {
-            if character.is_move_valid(IVec2::NEG_Y) {
-                delta += IVec2::NEG_Y;
+        // no diagonal movement allowed
+        if delta == IVec2::ZERO {
+            if state.input.key_down(VirtualKeyCode::Up) {
+                if character.is_move_valid(IVec2::NEG_Y) {
+                    delta += IVec2::NEG_Y;
+                }
+                requested_delta += IVec2::NEG_Y;
             }
-            requested_delta += IVec2::NEG_Y;
-        }
-        if state.input.key_down(VirtualKeyCode::Down) {
-            if character.is_move_valid(IVec2::Y) {
-                delta += IVec2::Y;
+            if state.input.key_down(VirtualKeyCode::Down) {
+                if character.is_move_valid(IVec2::Y) {
+                    delta += IVec2::Y;
+                }
+                requested_delta += IVec2::Y;
             }
-            requested_delta += IVec2::Y;
         }
 
-        if delta != IVec2::ZERO {
-            if requested_delta.x != 0 && requested_delta.x.signum() != self.facing.x {
-                character.flip_visual(state);
-                self.facing.x = requested_delta.x.signum();
-            } else {
-                character.perform_move(delta, grid, state);
-            }
+        if requested_delta.x != 0 && requested_delta.x.signum() != self.facing.x {
+            character.flip_visual(state);
+            self.facing.x = requested_delta.x.signum();
+        } else if delta != IVec2::ZERO {
+            character.perform_move(delta, grid, state);
         }
 
         if state.input.key_down(VirtualKeyCode::Z) {
