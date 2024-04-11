@@ -13,7 +13,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 winit = { version = "0.29", features = [ "rwh_05" ] }
-env_logger = "0.10"
+env_logger = "0.11"
 log = "0.4"
 wgpu = "0.15"
 bytemuck = { version = "1.12", features = [ "derive" ] }
