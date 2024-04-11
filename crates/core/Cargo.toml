@@ -18,7 +18,7 @@ log = "0.4"
 wgpu = "0.15"
 bytemuck = { version = "1.12", features = [ "derive" ] }
 anyhow = "1.0"
-glam = "0.23"
+glam = "0.27"
 cfg-if = "1"
 instant = "0.1"
 slotmap = "1.0.6" # if / when we need serialization features = [ "serde" ]
