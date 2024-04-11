@@ -111,7 +111,7 @@ impl Scene {
         // although could argue the game code should explicitly break the prefab connection rather
         // than checking every frame for something that's going to be quite rare
 
-        // Build list of entities by shader so we can build the uniform buffers appropraitely
+        // Build list of entities by shader so we can build the uniform buffers appropriately
         // Arguably we could just iterate over all entities, if the shader were to keep track of
         // it's current uniform offset... would probably be faster than building a hashmap.
         let mut entities_by_shader = HashMap::new();
