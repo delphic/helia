@@ -12,13 +12,13 @@ impl OrbitCamera {
 
     pub fn update_camera(&self, camera: &mut Camera, input: &InputState, elapsed: f32) {
         let is_forward_pressed =
-            input.key_pressed(VirtualKeyCode::W) || input.key_pressed(VirtualKeyCode::Up);
+            input.key_pressed(KeyCode::KeyW) || input.key_pressed(KeyCode::ArrowUp);
         let is_left_pressed =
-            input.key_pressed(VirtualKeyCode::A) || input.key_pressed(VirtualKeyCode::Left);
+            input.key_pressed(KeyCode::KeyA) || input.key_pressed(KeyCode::ArrowLeft);
         let is_backward_pressed =
-            input.key_pressed(VirtualKeyCode::S) || input.key_pressed(VirtualKeyCode::Down);
+            input.key_pressed(KeyCode::KeyS) || input.key_pressed(KeyCode::ArrowDown);
         let is_right_pressed =
-            input.key_pressed(VirtualKeyCode::D) || input.key_pressed(VirtualKeyCode::Right);
+            input.key_pressed(KeyCode::KeyD) || input.key_pressed(KeyCode::ArrowRight);
 
         let to_target = camera.target - camera.eye;
         let forward = to_target.normalize();

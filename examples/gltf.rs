@@ -31,15 +31,13 @@ impl Game for GameState {
         log::info!("{:#?}", model);
         // bevy uses gltf so we can crib from them as for what utils we need
         // https://github.com/bevyengine/bevy/blob/1a43ce15edec5b730922d73dae2f2bfe379bf930/crates/bevy_gltf/src/loader.rs#L1115
-        // looks like [base64](https://docs.rs/base64/latest/base64/) crate for decoding data uris as well as maybe 
+        // looks like [base64](https://docs.rs/base64/latest/base64/) crate for decoding data uris as well as maybe
         // https://docs.rs/percent-encoding/latest/percent_encoding/fn.percent_decode.html
 
         state.scene.camera = camera;
     }
 
-    fn update(&mut self, _state: &mut State, _elapsed: f32) {
-
-    }
+    fn update(&mut self, _state: &mut State, _elapsed: f32) {}
 
     fn resize(&mut self, state: &mut State) {
         state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;

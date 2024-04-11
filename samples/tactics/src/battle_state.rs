@@ -5,7 +5,7 @@ use crate::text_mesh::*;
 use crate::GameResources;
 
 use glam::*;
-use helia::input::VirtualKeyCode;
+use helia::input::KeyCode;
 use helia::transform::Transform;
 use helia::{entity::*, *};
 
@@ -124,12 +124,12 @@ impl BattleState {
                 }
             }
             BattleStage::PlayerAction => {
-                if state.input.key_down(VirtualKeyCode::X) {
+                if state.input.key_down(KeyCode::KeyX) {
                     self.stage = BattleStage::PlayerMove;
                     let player_character = &self.players[self.active_player_index].character;
                     self.grid.set_movement_highlights(player_character, state);
                 }
-                if state.input.key_down(VirtualKeyCode::Z) {
+                if state.input.key_down(KeyCode::KeyZ) {
                     // todo: select and perform player ability
                     // need another stage really `PlayerActionMenu`
                     // and then `PlayerAbilityTargeting { ability }`

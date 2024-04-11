@@ -3,9 +3,9 @@ use slotmap::SlotMap;
 use winit::{
     dpi::PhysicalSize,
     event::*,
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-    window::WindowBuilder,
+    event_loop::EventLoop,
+    keyboard::{KeyCode, PhysicalKey},
+    window::{Window, WindowBuilder},
 };
 
 use material::*;
@@ -273,7 +273,7 @@ impl Helia {
             }
         }
 
-        let event_loop = EventLoop::new();
+        let event_loop = EventLoop::new().ok().unwrap();
 
         let window = WindowBuilder::new()
             .with_title(self.title.clone())
@@ -300,7 +300,7 @@ impl Helia {
 
         game.init(&mut state);
 
-        event_loop.run(move |event, _, control_flow| match event {
+        let _ = event_loop.run(move |event, target| match event {
             Event::WindowEvent {
                 ref event,
                 window_id,
@@ -309,47 +309,45 @@ impl Helia {
                 match event {
                     WindowEvent::CloseRequested
                     | WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
+                        event:
+                            KeyEvent {
+                                physical_key: PhysicalKey::Code(KeyCode::Escape),
                                 state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
                                 ..
                             },
                         ..
-                    } => *control_flow = ControlFlow::Exit,
+                    } => target.exit(),
                     WindowEvent::Resized(physical_size) => {
                         if state.resize(*physical_size) {
                             game.resize(&mut state);
                         }
                     }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        // new_inner_size is &&mut so we have to dereference it twice
-                        if state.resize(**new_inner_size) {
-                            game.resize(&mut state);
+                    WindowEvent::ScaleFactorChanged { .. } => {
+                        // This used to resize as per resize but it no longer contains "new_inner_size",
+                        // although the documentation still refers to it
+                    }
+                    WindowEvent::RedrawRequested => {
+                        let elapsed = state.time.update();
+                        game.update(&mut state, elapsed);
+                        state.update();
+                        state.input.frame_finished();
+
+                        match state.render() {
+                            Ok(_) => {}
+                            // Reconfigure the surface if lost
+                            Err(wgpu::SurfaceError::Lost) => {
+                                state.resize(state.size);
+                            }
+                            // The system is out of memory, we should probably quit
+                            Err(wgpu::SurfaceError::OutOfMemory) => target.exit(),
+                            // All other errors (Outdated, Timeout) should be resolved by the next frame
+                            Err(e) => eprintln!("{:?}", e),
                         }
                     }
                     _ => {}
                 }
             }
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                let elapsed = state.time.update();
-                game.update(&mut state, elapsed);
-                state.update();
-                state.input.frame_finished();
-
-                match state.render() {
-                    Ok(_) => {}
-                    // Reconfigure the surface if lost
-                    Err(wgpu::SurfaceError::Lost) => {
-                        state.resize(state.size);
-                    }
-                    // The system is out of memory, we should probably quit
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    // All other errors (Outdated, Timeout) should be resolved by the next frame
-                    Err(e) => eprintln!("{:?}", e),
-                }
-            }
-            Event::MainEventsCleared => {
+            Event::AboutToWait => {
                 // RedrawRequested will only trigger once, unless we manually
                 // request it.
                 window.request_redraw();

@@ -1,6 +1,6 @@
 use crate::{character::*, grid::Grid};
 use glam::*;
-use helia::{input::VirtualKeyCode, State};
+use helia::{input::KeyCode, State};
 
 pub struct Player {
     pub character: Character,
@@ -13,13 +13,13 @@ impl Player {
         let mut delta = IVec2::ZERO;
         let mut requested_delta = IVec2::ZERO;
 
-        if state.input.key_down(VirtualKeyCode::Left) {
+        if state.input.key_down(KeyCode::ArrowLeft) {
             if character.is_move_valid(IVec2::NEG_X) {
                 delta += IVec2::NEG_X;
             }
             requested_delta += IVec2::NEG_X;
         }
-        if state.input.key_down(VirtualKeyCode::Right) {
+        if state.input.key_down(KeyCode::ArrowRight) {
             if character.is_move_valid(IVec2::X) {
                 delta += IVec2::X;
             }
@@ -28,13 +28,13 @@ impl Player {
 
         // no diagonal movement allowed
         if delta == IVec2::ZERO {
-            if state.input.key_down(VirtualKeyCode::Up) {
+            if state.input.key_down(KeyCode::ArrowUp) {
                 if character.is_move_valid(IVec2::NEG_Y) {
                     delta += IVec2::NEG_Y;
                 }
                 requested_delta += IVec2::NEG_Y;
             }
-            if state.input.key_down(VirtualKeyCode::Down) {
+            if state.input.key_down(KeyCode::ArrowDown) {
                 if character.is_move_valid(IVec2::Y) {
                     delta += IVec2::Y;
                 }
@@ -49,7 +49,7 @@ impl Player {
             character.perform_move(delta, grid, state);
         }
 
-        if state.input.key_down(VirtualKeyCode::Z) {
+        if state.input.key_down(KeyCode::KeyZ) {
             // this would change battle state if we had any other states
             let character_update = (character.last_position, character.position);
             character.last_position = character.position;

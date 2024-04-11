@@ -7,10 +7,11 @@ use std::{
 };
 use winit::{
     dpi::PhysicalPosition,
-    event::{ElementState, KeyboardInput, MouseScrollDelta, WindowEvent},
+    event::{ElementState, KeyEvent, MouseScrollDelta, WindowEvent},
+    keyboard::PhysicalKey,
 };
 
-pub type VirtualKeyCode = winit::event::VirtualKeyCode;
+pub type KeyCode = winit::keyboard::KeyCode;
 pub type MouseButton = winit::event::MouseButton;
 
 pub struct InputState {
@@ -19,7 +20,7 @@ pub struct InputState {
     pub mouse_scroll_delta: Vec2,
     pub pixel_scroll_ratio: f32,
     last_mouse_position: PhysicalPosition<f64>,
-    key_map: InputMap<VirtualKeyCode>,
+    key_map: InputMap<KeyCode>,
     mouse_button_map: InputMap<MouseButton>,
 }
 
@@ -104,10 +105,10 @@ impl InputState {
                 self.mouse_position = *position;
             }
             WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
+                event:
+                    KeyEvent {
                         state,
-                        virtual_keycode: Some(keycode),
+                        physical_key: PhysicalKey::Code(keycode),
                         ..
                     },
                 ..
@@ -128,27 +129,27 @@ impl InputState {
     }
 
     /// Is key currently pressed
-    pub fn key_pressed(&self, keycode: VirtualKeyCode) -> bool {
+    pub fn key_pressed(&self, keycode: KeyCode) -> bool {
         self.key_map.is_pressed(keycode)
     }
 
     /// Was key pressed this frame
-    pub fn key_down(&self, keycode: VirtualKeyCode) -> bool {
+    pub fn key_down(&self, keycode: KeyCode) -> bool {
         self.key_map.down(keycode)
     }
 
     /// Was key released this frame
-    pub fn key_up(&self, keycode: VirtualKeyCode) -> bool {
+    pub fn key_up(&self, keycode: KeyCode) -> bool {
         self.key_map.up(keycode)
     }
 
     /// Get the amount of real time since the the last key up event
-    pub fn key_up_elapsed(&self, keycode: VirtualKeyCode) -> Option<f32> {
+    pub fn key_up_elapsed(&self, keycode: KeyCode) -> Option<f32> {
         self.key_map.up_elapsed(keycode)
     }
 
     /// Get the amount of real time since the last key down event
-    pub fn key_down_elapsed(&self, keycode: VirtualKeyCode) -> Option<f32> {
+    pub fn key_down_elapsed(&self, keycode: KeyCode) -> Option<f32> {
         self.key_map.down_elapsed(keycode)
     }
 
