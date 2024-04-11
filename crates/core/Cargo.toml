@@ -24,7 +24,7 @@ instant = "0.1"
 slotmap = "1.0.6" # if / when we need serialization features = [ "serde" ]
 
 [dependencies.image]
-version = "0.24"
+version = "0.25"
 default-features = false
 features = ["png"]
 
