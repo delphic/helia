@@ -72,9 +72,7 @@ pub struct State {
 
 impl State {
     // Creating some of the wgpu types requires async code
-    async fn new(window: &Window) -> Self {
-        let size = window.inner_size();
-
+    async fn new(window: &Window, size: PhysicalSize<u32>) -> Self {
         // The instance is a handle to our GPU
         let instance = wgpu::Instance::default();
         let surface = unsafe { instance.create_surface(window).unwrap() };
@@ -289,14 +287,17 @@ impl Helia {
                 .and_then(|win| win.document())
                 .and_then(|doc| {
                     let dst = doc.get_element_by_id("helia")?;
-                    let canvas = web_sys::Element::from(window.canvas());
+                    let canvas = window.canvas()?;
+                    canvas.set_width(self.window_size.width);
+                    canvas.set_height(self.window_size.height);
+                    let canvas = web_sys::Element::from(canvas);
                     dst.append_child(&canvas).ok()?;
                     Some(())
                 })
                 .expect("Couldn't append canvas to document body.");
         }
 
-        let mut state = State::new(&window).await;
+        let mut state = State::new(&window, self.window_size).await;
 
         game.init(&mut state);
 
