@@ -275,7 +275,7 @@ impl Scene {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(camera.clear_color),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 }),
             ],
@@ -283,10 +283,11 @@ impl Scene {
                 view: depth_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            ..Default::default()
         });
 
         let mut currently_bound_shader_id: Option<ShaderId> = None;
