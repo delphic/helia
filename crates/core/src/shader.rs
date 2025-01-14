@@ -1,4 +1,5 @@
 use glam::*;
+use wgpu::PipelineCompilationOptions;
 
 use crate::{
     camera::CameraBindGroup,
@@ -180,11 +181,13 @@ impl Shader {
             vertex: wgpu::VertexState {
                 module: &shader_module,
                 entry_point: "vs_main",
+                compilation_options: PipelineCompilationOptions::default(),
                 buffers: &[Vertex::desc()], //, InstanceRaw::desc() for particle systems
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader_module,
                 entry_point: "fs_main",
+                compilation_options: PipelineCompilationOptions::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: texture_format,
                     blend: blend_state,
