@@ -31,6 +31,7 @@ impl Time {
                 self.elapsed = max_ms as f32 / 1000.0 * self.time_scale
             }
         }
+        self.total_elapsed += self.elapsed;
         self.last_update_time = Instant::now();
 
         self.elapsed
