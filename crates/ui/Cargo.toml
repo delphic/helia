@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-glam = "0.27"
+glam = "0.29"
 log = "0.4"
 core = { path = "../core" }
 primitives = { path = "../primitives" }
