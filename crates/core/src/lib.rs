@@ -100,6 +100,7 @@ impl State {
                         wgpu::Limits::downlevel_defaults()
                     },
                     label: None,
+                    memory_hints: wgpu::MemoryHints::Performance,
                 },
                 None, // Trace path
             )
