@@ -180,13 +180,13 @@ impl Shader {
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader_module,
-                entry_point: "vs_main",
+                entry_point: None,
                 compilation_options: PipelineCompilationOptions::default(),
                 buffers: &[Vertex::desc()], //, InstanceRaw::desc() for particle systems
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader_module,
-                entry_point: "fs_main",
+                entry_point: None,
                 compilation_options: PipelineCompilationOptions::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: texture_format,
