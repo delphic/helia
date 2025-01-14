@@ -12,7 +12,7 @@ crate-type = ["cdylib", "rlib"]
 # rlib for desktop env, cdylib for wasm
 
 [dependencies]
-winit = "0.29"
+winit = "0.30"
 env_logger = "0.11"
 log = "0.4"
 wgpu = "23.0"
@@ -22,6 +22,7 @@ glam = "0.29"
 cfg-if = "1"
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 slotmap = "1.0.6" # if / when we need serialization features = [ "serde" ]
+pollster = "0.4"
 
 [dependencies.image]
 version = "0.25"

@@ -3,11 +3,7 @@ use std::sync::Arc;
 use glam::*;
 use slotmap::SlotMap;
 use winit::{
-    dpi::PhysicalSize,
-    event::*,
-    event_loop::EventLoop,
-    keyboard::{KeyCode, PhysicalKey},
-    window::{Window, WindowBuilder},
+    application::ApplicationHandler, dpi::PhysicalSize, event::*, event_loop::{EventLoop, EventLoopProxy}, keyboard::{KeyCode, PhysicalKey}, window::Window
 };
 
 use material::*;
@@ -70,6 +66,7 @@ pub struct State {
     pub resources: Resources,
     pub shaders: BuildInShaders,
     texture_bind_group_layout: wgpu::BindGroupLayout,
+    pub window: Arc<Window>,
 }
 
 impl State {
@@ -77,7 +74,7 @@ impl State {
     async fn new(window: Arc<Window>, size: PhysicalSize<u32>) -> Self {
         // The instance is a handle to our GPU
         let instance = wgpu::Instance::default();
-        let surface = instance.create_surface(window).unwrap();
+        let surface = instance.create_surface(window.clone()).unwrap();
         log::info!("{:?}", surface);
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -169,6 +166,7 @@ impl State {
                 unlit_textured,
                 sprite,
             },
+            window,
         }
     }
 
@@ -227,6 +225,152 @@ impl State {
     }
 }
 
+// Consider implementing Drop for State 
+// https://github.com/sotrh/learn-wgpu/issues/549#issuecomment-2445330937
+
+// App and enum to support flow necessary to create
+// window for both native and WASM export  
+enum UserEvent {
+    StateReady(State),
+}
+
+struct App {
+    title: String,
+    resizable: bool,
+    window_size: PhysicalSize<u32>,
+    state: Option<State>,
+    event_loop_proxy: EventLoopProxy<UserEvent>,
+    game: Box<dyn Game>,
+}
+
+impl App {
+    fn new(
+        game: Box<dyn Game>,
+        title: String,
+        resizable: bool,
+        window_size: PhysicalSize<u32>,
+        event_loop: &EventLoop<UserEvent>) -> Self {
+        Self {
+            game,
+            title,
+            resizable,
+            window_size,
+            state: None,
+            event_loop_proxy: event_loop.create_proxy(),
+        }
+    }
+}
+
+impl ApplicationHandler<UserEvent> for App {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let window = event_loop.create_window(
+            Window::default_attributes().with_title(self.title.clone())
+                .with_resizable(self.resizable)
+                .with_inner_size(self.window_size)
+            ).ok().unwrap();
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use winit::platform::web::WindowExtWebSys;
+            web_sys::window()
+                .and_then(|win| win.document())
+                .and_then(|doc| {
+                    let dst = doc.get_element_by_id("helia")?;
+                    let canvas = window.canvas()?;
+                    canvas.set_width(self.window_size.width);
+                    canvas.set_height(self.window_size.height);
+                    let canvas = web_sys::Element::from(canvas);
+                    dst.append_child(&canvas).ok()?;
+                    Some(())
+                })
+                .expect("Couldn't append canvas to document body.");
+            
+            let state_future = State::new(Arc::new(window), self.window_size);
+            let event_loop_proxy = self.event_loop_proxy.clone();
+            let future = async move {
+                let state = state_future.await;
+                assert!(event_loop_proxy.send_event(UserEvent::StateReady(state)).is_ok());
+            };
+            wasm_bindgen_futures::spawn_local(future);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let state = pollster::block_on(State::new(Arc::new(window), self.window_size));
+            assert!(self.event_loop_proxy.send_event(UserEvent::StateReady(state)).is_ok());
+        }
+    }
+
+    fn user_event(&mut self, _: &winit::event_loop::ActiveEventLoop, event: UserEvent) {
+        let UserEvent::StateReady(mut state) = event;
+        self.game.init(&mut state);
+        self.state = Some(state);
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        let Some(ref mut state) = self.state else {
+            return;
+        };
+
+        if window_id != state.window.id() {
+            return;
+        }
+
+        state.input.process_events(&event);
+
+        match event {
+            WindowEvent::CloseRequested
+            | WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: PhysicalKey::Code(KeyCode::Escape),
+                        state: ElementState::Pressed,
+                        ..
+                    },
+                ..
+            } => event_loop.exit(),
+            WindowEvent::Resized(physical_size) => {
+                if state.resize(physical_size) {
+                    self.game.resize(state);
+                }
+            }
+            WindowEvent::ScaleFactorChanged { .. } => {
+                // This used to resize as per resize but it no longer contains "new_inner_size",
+                // although the documentation still refers to it
+            }
+            WindowEvent::RedrawRequested => {
+                let elapsed = state.time.update();
+                self.game.update(state, elapsed);
+                state.update();
+                state.input.frame_finished();
+
+                match state.render() {
+                    Ok(_) => {}
+                    // Reconfigure the surface if lost
+                    Err(wgpu::SurfaceError::Lost) => {
+                        state.resize(state.size);
+                    }
+                    // The system is out of memory, we should probably quit
+                    Err(wgpu::SurfaceError::OutOfMemory) => event_loop.exit(),
+                    // All other errors (Outdated, Timeout) should be resolved by the next frame
+                    Err(e) => eprintln!("{:?}", e),
+                }
+            }
+            _ => {}
+        };
+    }
+
+    fn about_to_wait(&mut self, _: &winit::event_loop::ActiveEventLoop) {
+        if let Some(ref state) = self.state {
+            state.window.request_redraw();
+        }
+    }
+}
+
 pub trait Game {
     fn init(&mut self, state: &mut State);
     fn update(&mut self, state: &mut State, elapsed: f32);
@@ -266,7 +410,7 @@ impl Helia {
         self
     }
 
-    pub async fn run(&self, mut game: Box<dyn Game>) {
+    pub async fn run(&self, game: Box<dyn Game>) {
         cfg_if::cfg_if! {
             if #[cfg(target_arch = "wasm32")] {
                 std::panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -276,90 +420,11 @@ impl Helia {
             }
         }
 
-        let event_loop = EventLoop::new().ok().unwrap();
+        let event_loop = EventLoop::<UserEvent>::with_user_event().build().ok().unwrap();
+        // Consider ControlFlow::Poll and not using about_to_wait in AppHandler 
+        // c.f. https://github.com/sotrh/learn-wgpu/issues/549#issuecomment-2570248027
 
-        let window = WindowBuilder::new()
-            .with_title(self.title.clone())
-            .with_resizable(self.resizable)
-            .with_inner_size(self.window_size)
-            .build(&event_loop)
-            .unwrap();
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use winit::platform::web::WindowExtWebSys;
-            web_sys::window()
-                .and_then(|win| win.document())
-                .and_then(|doc| {
-                    let dst = doc.get_element_by_id("helia")?;
-                    let canvas = window.canvas()?;
-                    canvas.set_width(self.window_size.width);
-                    canvas.set_height(self.window_size.height);
-                    let canvas = web_sys::Element::from(canvas);
-                    dst.append_child(&canvas).ok()?;
-                    Some(())
-                })
-                .expect("Couldn't append canvas to document body.");
-        }
-
-        let window = Arc::new(window);
-        let mut state = State::new(window.clone(), self.window_size).await;
-
-        game.init(&mut state);
-
-        let _ = event_loop.run(move |event, target| match event {
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == window.id() => {
-                state.input.process_events(event);
-                match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        event:
-                            KeyEvent {
-                                physical_key: PhysicalKey::Code(KeyCode::Escape),
-                                state: ElementState::Pressed,
-                                ..
-                            },
-                        ..
-                    } => target.exit(),
-                    WindowEvent::Resized(physical_size) => {
-                        if state.resize(*physical_size) {
-                            game.resize(&mut state);
-                        }
-                    }
-                    WindowEvent::ScaleFactorChanged { .. } => {
-                        // This used to resize as per resize but it no longer contains "new_inner_size",
-                        // although the documentation still refers to it
-                    }
-                    WindowEvent::RedrawRequested => {
-                        let elapsed = state.time.update();
-                        game.update(&mut state, elapsed);
-                        state.update();
-                        state.input.frame_finished();
-
-                        match state.render() {
-                            Ok(_) => {}
-                            // Reconfigure the surface if lost
-                            Err(wgpu::SurfaceError::Lost) => {
-                                state.resize(state.size);
-                            }
-                            // The system is out of memory, we should probably quit
-                            Err(wgpu::SurfaceError::OutOfMemory) => target.exit(),
-                            // All other errors (Outdated, Timeout) should be resolved by the next frame
-                            Err(e) => eprintln!("{:?}", e),
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Event::AboutToWait => {
-                // RedrawRequested will only trigger once, unless we manually
-                // request it.
-                window.request_redraw();
-            }
-            _ => {}
-        });
+        let mut app = App::new(game, self.title.clone(), self.resizable, self.window_size, &event_loop);
+        event_loop.run_app(&mut app).ok();
     }
 }
