@@ -1,7 +1,4 @@
-// use std::{
-//     any::{Any, TypeId},
-//     collections::HashMap,
-// };
+
 
 use glam::{Mat4, Vec2};
 
@@ -94,7 +91,6 @@ pub struct Entity {
     pub visible: bool,
     // instance propertires
     pub properties: InstanceProperties,
-    // components: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl Entity {
@@ -105,34 +101,8 @@ impl Entity {
             visible: true,
             uniform_offset: 0,
             properties,
-           // components: HashMap::new(),
         }
     }
-
-    // This is confusing Entity as in "RenderObject" and Entity as in "GameObject"
-    // We're committing to Entity as render object for now, though we may rename it and
-    // create a more core Entity concept.
-
-    // pub fn add_component<T: 'static>(&mut self, component: T) {
-    //     self.components
-    //         .insert(TypeId::of::<T>(), Box::new(component));
-    // }
-
-    // pub fn get_component<T: 'static>(&self) -> Option<&T> {
-    //     let id = TypeId::of::<T>();
-    //     if let Some(component) = self.components.get(&id) {
-    //         return component.downcast_ref::<T>();
-    //     }
-    //     None
-    // }
-
-    // pub fn get_component_mut<T: 'static>(&mut self) -> Option<&mut T> {
-    //     let id = TypeId::of::<T>();
-    //     if let Some(component) = self.components.get_mut(&id) {
-    //         return component.downcast_mut::<T>();
-    //     }
-    //     None
-    // }
 }
 
 pub struct EntityBindGroup {

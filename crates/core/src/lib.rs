@@ -16,6 +16,7 @@ use texture::*;
 pub type Color = wgpu::Color;
 
 pub mod entity;
+pub mod game_object;
 pub mod input;
 pub mod prefab;
 pub mod scene;
