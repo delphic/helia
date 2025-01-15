@@ -156,7 +156,10 @@ impl CameraUniform {
 
 /// Contains the bind group, its layout and the data to bind
 pub struct CameraBindGroup {
+    // This depends on the shader
     pub layout: wgpu::BindGroupLayout,
+    // These should be per camera, if we want to be able to use multiple cameras
+    // Assuming we can rebind bind_group mid render pass
     pub bind_group: wgpu::BindGroup,
     buffer: wgpu::Buffer,
     uniform: CameraUniform,

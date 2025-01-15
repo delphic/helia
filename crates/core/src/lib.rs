@@ -258,8 +258,7 @@ impl State {
             let shader = &mut self.resources.shaders[*shader_id];
 
             shader.reset_offset();
-            // NOTE: camera dependency, not sure if it's possible to bind a different camera bind group,
-            // I'm not even sure we really need this per shader, TODO: attempt removing from shader and adding to internal camera
+            // NOTE: camera dependency, see the render pass for more details
             shader.camera_bind_group.update(&self.scene.camera, &self.queue);
 
             // Ensure sufficient capacity in each shader to be used for entity uniform data
@@ -335,8 +334,9 @@ impl State {
                         currently_bound_shader_id = Some(material.shader);
                         render_pass.set_pipeline(&shader.render_pipeline);
                         render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]); 
-                        // TODO: Why can't we use camera.bind_group ? I reckon we probably can at the moment
-                        // but that's presumably because all the shaders use the same setup for camera uniforms
+                        // TODO: Should be asking shader for camera_bind_group for a particular camera
+                        // This would require the shader to have an updated bind_group / buffer & uniform
+                        // for each camera which it needs to render for
                     }
 
                     render_pass.set_bind_group(2, &material.diffuse_bind_group, &[]);

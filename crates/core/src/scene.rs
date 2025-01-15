@@ -17,8 +17,8 @@ pub struct Scene {
     pub camera: Camera,
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub render_objects: Vec<EntityId>,
-    entities: SecondaryMap<EntityId, Entity>,
     hierarchy: SlotMap<EntityId, Transform>,
+    entities: SecondaryMap<EntityId, Entity>,
     scene_graph: Vec<EntityId>,
 }
 
@@ -28,8 +28,8 @@ impl Scene {
             camera: Camera::default(),
             prefabs: DenseSlotMap::with_key(),
             render_objects: Vec::new(),
-            entities: SecondaryMap::new(),
             hierarchy: SlotMap::with_key(),
+            entities: SecondaryMap::new(),
             scene_graph: Vec::new(),
         }
     }
