@@ -103,9 +103,13 @@ impl Game for GameState {
                         )
                     };
 
-                    InstanceProperties::builder()
-                        .with_transform(Transform::from_position_rotation(position, rotation))
-                        .build()
+                    let transform = Transform::from_position_rotation(position, rotation);
+                    (
+                        transform, 
+                        InstanceProperties::builder()
+                            .with_matrix(transform.to_local_matrix())
+                            .build()
+                    )
                 })
             })
             .collect::<Vec<_>>();
@@ -116,11 +120,11 @@ impl Game for GameState {
         let lena_prefab_id = state.scene.create_prefab(mesh_id, black_material_id);
         let lena_alt_prefab_id = state.scene.create_prefab(mesh_id, rink_material_id);
 
-        for (i, props) in instances.iter().enumerate() {
+        for (i, (transform, props)) in instances.iter().enumerate() {
             if i % 2 == 0 {
-                state.scene.add_instance(lena_prefab_id, *props);
+                state.scene.add_instance(lena_prefab_id, *transform, *props);
             } else {
-                state.scene.add_instance(lena_alt_prefab_id, *props);
+                state.scene.add_instance(lena_alt_prefab_id, *transform, *props);
             }
         }
     }

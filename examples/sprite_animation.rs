@@ -4,6 +4,7 @@ use helia::{
     entity::*,
     *,
 };
+use transform::Transform;
 
 // todo: move to helia::aseprite module
 // ideally should be optional module
@@ -90,6 +91,7 @@ impl Game for GameState {
             state.scene.add_entity(
                 mesh_id,
                 lena_material_id,
+                Transform::default(),
                 InstanceProperties::builder()
                     .with_uv_offset_scale(offset, scale)
                     .build(),

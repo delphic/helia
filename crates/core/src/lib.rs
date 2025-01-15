@@ -217,13 +217,12 @@ impl State {
                     material,
                     transform) => {
 
-                    let mut entity = Entity::new(*mesh, *material, InstanceProperties::builder().with_transform(*transform).build());
-                    entity.properties.transform.world_matrix = entity.properties.transform.to_local_matrix() * Mat4::IDENTITY;
-                    // TODO: do we want to support transform hierarchies for 'draw' DrawCommands or are we happy requiring a scene 
-                    // Well we don't necessarily have to be smart about it we can just recurse up the hierarchy and do all of them
+                    let entity = Entity::new(
+                        *mesh,
+                        *material,
+                        InstanceProperties::builder().with_matrix(transform.to_local_matrix()).build());
+                    // ^^ consider how to best support transform hiearchies
                     
-                    // ^^ I think we only actually care about the world_matrix from transform so really our 'entity' should become just
-                    // mesh, material, world_matrix (and other instance properties) - if we're going to treat it as a render object
                     let shader = self.resources.materials.get(*material).unwrap().shader;
                     if let Some(count) = entity_count_by_shader.get(&shader) {
                         entity_count_by_shader.insert(shader, count + 1);
@@ -240,10 +239,10 @@ impl State {
                         } else {
                             entity_count_by_shader.insert(shader, 1);
                         }
-                        let mut entity = Entity::new(prefab.mesh, prefab.material, InstanceProperties::builder().with_transform(*transform).build());
-                        entity.properties.transform.world_matrix = entity.properties.transform.to_local_matrix() * Mat4::IDENTITY;
-                        // TODO: do we want to support transform hierarchies for 'draw' DrawCommands or are we happy requiring a scene 
-                        // Well we don't necessarily have to be smart about it we can just recurse up the hierarchy and do all of them
+                        let entity = Entity::new(
+                            prefab.mesh,
+                            prefab.material,
+                            InstanceProperties::builder().with_matrix(transform.to_local_matrix()).build());
                         entities.push(entity);
                     }
                 },

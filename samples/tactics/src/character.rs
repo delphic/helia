@@ -31,11 +31,10 @@ impl Character {
         let sprite = state.scene.add_entity(
             mesh_id,
             material_id,
-            InstanceProperties::builder()
-                .with_transform(Transform::from_position(
-                    grid.get_translation_for_position(position),
-                ))
-                .build(),
+            Transform::from_position(
+                grid.get_translation_for_position(position),
+            ),
+            InstanceProperties::default(),
         );
         grid.occupancy.insert(position);
         Self {
@@ -61,7 +60,7 @@ impl Character {
 
     pub fn perform_move(&mut self, delta: IVec2, grid: &Grid, state: &mut State) {
         self.position += delta;
-        let transform = &mut state.scene.get_entity_mut(self.sprite).properties.transform;
+        let transform = &mut state.scene.get_entity_transform_mut(self.sprite);
         transform.position = grid.get_translation_for_position(self.position);
     }
 

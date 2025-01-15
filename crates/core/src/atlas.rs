@@ -32,14 +32,16 @@ impl Atlas {
         index: usize,
         position: Vec3,
         scale: f32,
-    ) -> InstanceProperties {
+    ) -> (Transform, InstanceProperties) {
         let (uv_offset, uv_scale) = self.uv_offset_scale(index);
-        InstanceProperties::builder()
-            .with_transform(Transform::from_position_scale(
-                position,
-                scale * self.tile_size().extend(1.0),
-            ))
+        let transform = Transform::from_position_scale(
+            position,
+            scale * self.tile_size().extend(1.0),
+        );
+        let props = InstanceProperties::builder()
+            .with_matrix(transform.to_local_matrix())
             .with_uv_offset_scale(uv_offset, uv_scale)
-            .build()
+            .build();
+        (transform , props)
     }
 }

@@ -3,9 +3,9 @@
 //     collections::HashMap,
 // };
 
-use glam::Vec2;
+use glam::{Mat4, Vec2};
 
-use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms, transform::Transform};
+use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 
 // This is really a render object at the moment
 // it is also mixing the requirements of the shader (transform / color)
@@ -38,8 +38,8 @@ impl InstancePropertiesBuilder {
         self
     }
 
-    pub fn with_transform(&mut self, transform: Transform) -> &mut Self {
-        self.properties.transform = transform;
+    pub fn with_matrix(&mut self, matrix: Mat4) -> &mut Self {
+        self.properties.world_matrix = matrix;
         self
     }
 
@@ -62,7 +62,7 @@ impl InstancePropertiesBuilder {
 
 #[derive(Debug, Copy, Clone)]
 pub struct InstanceProperties {
-    pub transform: Transform,
+    pub world_matrix: Mat4,
     pub color: wgpu::Color,
     pub uv_offset: Vec2,
     pub uv_scale: Vec2,
@@ -71,7 +71,7 @@ pub struct InstanceProperties {
 impl Default for InstanceProperties {
     fn default() -> Self {
         Self {
-            transform: Transform::default(),
+            world_matrix: Mat4::IDENTITY,
             color: wgpu::Color::WHITE,
             uv_offset: Vec2::ZERO,
             uv_scale: Vec2::ONE,

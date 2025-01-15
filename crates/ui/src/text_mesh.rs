@@ -171,17 +171,22 @@ impl TextMesh {
         for (i, char) in chars.enumerate() {
             if let Some(index) = self.font.char_map.find(char) {
                 if i < self.entities.len() {
+                    let transform = state.scene.get_entity_transform_mut(self.entities[i].0);
+                    transform.position = position;
+                    let world_matrix = transform.to_local_matrix();
                     let entity = state.scene.get_entity_mut(self.entities[i].0);
-                    entity.properties.transform.position = position;
                     entity.properties.uv_offset = self.font.atlas.uv_offset_scale(index).0;
+                    entity.properties.world_matrix = world_matrix;
                     self.entities[i].1 = Vec3::ZERO; // reset offset
                 } else {
+                    let (transform, props) = self.font
+                        .atlas
+                        .instance_properties(index, position, self.scale);
                     let id = state.scene.add_entity(
                         self.font.atlas.mesh_id,
                         self.font.atlas.material_id,
-                        self.font
-                            .atlas
-                            .instance_properties(index, position, self.scale),
+                        transform,
+                        props
                     );
                     self.entities.push((id, Vec3::ZERO));
                 }
@@ -208,7 +213,7 @@ impl TextMesh {
             for (i, (entity_id, offset)) in self.entities.iter().enumerate() {
                 if let Some(char) = self.text.chars().nth(i) {
                     let transform =
-                        &mut state.scene.get_entity_mut(*entity_id).properties.transform;
+                        &mut state.scene.get_entity_transform_mut(*entity_id);
                     transform.position = position + *offset;
                     position += self.get_char_width(char) * Vec3::X;
                 }
@@ -220,7 +225,7 @@ impl TextMesh {
     pub fn offset_char(&mut self, index: usize, offset: Vec3, state: &mut State) {
         if index < self.entities.len() {
             let (id, prev_offset) = self.entities[index];
-            let transform = &mut state.scene.get_entity_mut(id).properties.transform;
+            let transform = &mut state.scene.get_entity_transform_mut(id);
             let delta = offset - prev_offset;
             transform.position += delta;
             self.entities[index] = (id, offset);

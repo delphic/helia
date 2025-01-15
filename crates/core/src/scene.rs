@@ -7,16 +7,18 @@ use crate::material::*;
 use crate::mesh::*;
 use crate::prefab::*;
 use crate::shader::ShaderId;
+use crate::transform::Transform;
 use crate::Resources;
 use glam::Mat4;
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
-use slotmap::{DenseSlotMap, SlotMap};
+use slotmap::{DenseSlotMap, SecondaryMap, SlotMap};
 
 pub struct Scene {
     pub camera: Camera,
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub render_objects: Vec<EntityId>,
-    entities: SlotMap<EntityId, Entity>,
+    entities: SecondaryMap<EntityId, Entity>,
+    hierarchy: SlotMap<EntityId, Transform>,
     scene_graph: Vec<EntityId>,
 }
 
@@ -26,7 +28,8 @@ impl Scene {
             camera: Camera::default(),
             prefabs: DenseSlotMap::with_key(),
             render_objects: Vec::new(),
-            entities: SlotMap::with_key(),
+            entities: SecondaryMap::new(),
+            hierarchy: SlotMap::with_key(),
             scene_graph: Vec::new(),
         }
     }
@@ -43,12 +46,14 @@ impl Scene {
     pub fn add_instance(
         &mut self,
         prefab_id: PrefabId,
+        transform: Transform,
         properties: InstanceProperties,
     ) -> EntityId {
         let prefab = self.prefabs.get_mut(prefab_id).unwrap();
         let entity_id = self
-            .entities
-            .insert(Entity::new(prefab.mesh, prefab.material, properties));
+            .hierarchy
+            .insert(transform);
+        self.entities.insert(entity_id, Entity::new(prefab.mesh, prefab.material, properties));
         prefab.instances.push(entity_id);
         entity_id
     }
@@ -57,11 +62,13 @@ impl Scene {
         &mut self,
         mesh: MeshId,
         material: MaterialId,
+        transform: Transform,
         properties: InstanceProperties,
     ) -> EntityId {
         let entity_id = self
-            .entities
-            .insert(Entity::new(mesh, material, properties));
+            .hierarchy
+            .insert(transform);
+        self.entities.insert(entity_id, Entity::new(mesh, material, properties));
         self.render_objects.push(entity_id);
         entity_id
     }
@@ -69,6 +76,7 @@ impl Scene {
     pub fn remove_entity(&mut self, entity_id: EntityId) {
         if let Some(index) = self.render_objects.iter().position(|x| *x == entity_id) {
             self.render_objects.remove(index);
+            self.hierarchy.remove(entity_id);
             self.entities.remove(entity_id);
         }
     }
@@ -77,17 +85,28 @@ impl Scene {
         if let Some(prefab) = self.prefabs.get_mut(prefab_id) {
             if let Some(index) = prefab.instances.iter().position(|x| *x == entity_id) {
                 prefab.instances.remove(index);
+                self.hierarchy.remove(entity_id);
                 self.entities.remove(entity_id);
             }
         }
     }
 
     pub fn clear(&mut self) {
+        self.hierarchy.clear();
         self.entities.clear();
         self.prefabs.clear();
         self.render_objects.clear();
         self.scene_graph.clear();
     }
+
+    pub fn get_entity_transform(&self, id: EntityId) -> &Transform {
+        &self.hierarchy[id]
+    }
+
+    pub fn get_entity_transform_mut(&mut self, id: EntityId) -> &mut Transform {
+        &mut self.hierarchy[id]
+    }
+    // ^^ TODO: move to heirarchy data structure
 
     pub fn get_entity(&self, id: EntityId) -> &Entity {
         &self.entities[id]
@@ -125,19 +144,19 @@ impl Scene {
         }
         while let Some(id) = pending.last() {
             let mut matrix = Mat4::IDENTITY;
-            if let Some(parent) = self.entities[*id].properties.transform.parent {
+            if let Some(parent) = self.hierarchy[*id].parent {
                 if !recalculated.contains(&parent) {
                     pending.push(parent);
                     continue;
                 } else {
-                    matrix = self.entities[parent].properties.transform.world_matrix;
+                    matrix = self.entities[parent].properties.world_matrix;
                 }
             }
 
             while let Some(id) = pending.pop() {
                 recalculated.insert(id);
-                matrix = self.entities[id].properties.transform.to_local_matrix() * matrix;
-                self.entities[id].properties.transform.world_matrix = matrix;
+                matrix = self.hierarchy[id].to_local_matrix() * matrix;
+                self.entities[id].properties.world_matrix = matrix;
             }
 
             loop {
@@ -221,12 +240,10 @@ impl Scene {
             // and then we're sorting from front to back, rather than back to front
             let world_pos_a = self.entities[*a]
                 .properties
-                .transform
                 .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
             let world_pos_b = self.entities[*b]
                 .properties
-                .transform
                 .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
             let a_z = camera_transform.transform_point3(world_pos_a).z;

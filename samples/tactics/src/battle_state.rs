@@ -50,9 +50,8 @@ impl BattleState {
         state.scene.add_entity(
             bg_sprite_ids.0,
             bg_sprite_ids.1,
-            InstanceProperties::builder()
-                .with_transform(Transform::from_position(Vec3::new(0.0, 0.0, -100.0)))
-                .build(),
+            Transform::from_position(Vec3::new(0.0, 0.0, -100.0)),
+            InstanceProperties::default(),
         );
 
         // Font test

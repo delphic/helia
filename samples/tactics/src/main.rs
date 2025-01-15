@@ -219,12 +219,11 @@ impl Game for GameState {
         state.scene.add_entity(
             slice_mesh.mesh,
             material_id,
-            InstanceProperties::builder()
-                .with_transform(transform::Transform::from_position_scale(
-                    Vec3::new(0.0, 64.0, 0.0),
-                    4.0 * Vec3::ONE,
-                ))
-                .build(),
+            transform::Transform::from_position_scale(
+                Vec3::new(0.0, 64.0, 0.0),
+                4.0 * Vec3::ONE,
+            ),
+            InstanceProperties::default(),
         );
 
         slice_mesh.resize(Vec2::new(32.0, 16.0), state);

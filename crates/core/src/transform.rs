@@ -8,8 +8,6 @@ pub struct Transform {
     pub rotation: Quat,
     pub scale: Vec3,
     pub parent: Option<EntityId>,
-    /// for internal use only
-    pub world_matrix: Mat4,
 }
 
 impl Default for Transform {
@@ -19,7 +17,6 @@ impl Default for Transform {
             rotation: Quat::IDENTITY,
             scale: Vec3::ONE,
             parent: None,
-            world_matrix: Mat4::IDENTITY,
         }
     }
 }
@@ -31,7 +28,6 @@ impl Transform {
             rotation,
             scale,
             parent,
-            world_matrix: Mat4::IDENTITY,
         }
     }
 
@@ -41,7 +37,6 @@ impl Transform {
             rotation: Quat::IDENTITY,
             scale: Vec3::ONE,
             parent: None,
-            world_matrix: Mat4::IDENTITY,
         }
     }
 
@@ -51,7 +46,6 @@ impl Transform {
             rotation,
             scale: Vec3::ONE,
             parent: None,
-            world_matrix: Mat4::IDENTITY,
         }
     }
 
@@ -61,7 +55,6 @@ impl Transform {
             rotation: Quat::IDENTITY,
             scale,
             parent: None,
-            world_matrix: Mat4::IDENTITY,
         }
     }
 
@@ -71,7 +64,6 @@ impl Transform {
             rotation,
             scale,
             parent: None,
-            world_matrix: Mat4::IDENTITY,
         }
     }
 

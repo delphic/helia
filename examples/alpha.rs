@@ -120,11 +120,12 @@ impl Game for GameState {
         let mesh_id = state.resources.meshes.insert(mesh);
 
         for i in 0..3 {
+            let transform = Transform::from_position(-2.0 * (i as f32) * Vec3::Z);
             let props = InstanceProperties::builder()
-                .with_transform(Transform::from_position(-2.0 * (i as f32) * Vec3::Z))
+                .with_matrix(transform.to_local_matrix())
                 .build();
             self.cubes
-                .push(state.scene.add_entity(mesh_id, material_id, props));
+                .push(state.scene.add_entity(mesh_id, material_id, transform, props));
         }
     }
 
@@ -135,7 +136,7 @@ impl Game for GameState {
         }
 
         for (i, cube) in self.cubes.iter().enumerate() {
-            let transform = &mut state.scene.get_entity_mut(*cube).properties.transform;
+            let transform = &mut state.scene.get_entity_transform_mut(*cube);
             transform.position = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
             transform.rotation =
                 Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)

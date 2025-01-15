@@ -50,7 +50,7 @@ impl EntityUniforms {
     pub fn write_bytes(entity: &Entity, bytes: &mut Vec<u8>) {
         let props = entity.properties;
         let data = EntityUniforms {
-            model: props.transform.world_matrix.to_cols_array_2d(),
+            model: props.world_matrix.to_cols_array_2d(),
             color: [
                 props.color.r as f32,
                 props.color.g as f32,

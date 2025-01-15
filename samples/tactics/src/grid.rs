@@ -35,12 +35,12 @@ impl Grid {
             let position = IVec2::new(i % self.size.x, i / self.size.x);
             let id = state.scene.add_instance(
                 prefab_id,
+                Transform::from_position(
+                    self.get_translation_for_position(position)
+                        - 16.0 * Vec3::Y
+                        - 32.0 * Vec3::Z,
+                ), // could sort this y offset with better anchoring and base offset
                 InstanceProperties::builder()
-                    .with_transform(Transform::from_position(
-                        self.get_translation_for_position(position)
-                            - 16.0 * Vec3::Y
-                            - 32.0 * Vec3::Z,
-                    )) // could sort this y offset with better anchoring and base offset
                     .with_color(Color::TRANSPARENT) // Visibility rather than transparent would be nice
                     .build(),
             );
