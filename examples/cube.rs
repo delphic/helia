@@ -1,7 +1,7 @@
 use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
-    entity::*,
+    // entity::*,
     material::Material,
     mesh::Mesh,
     orbit_camera::*,
@@ -78,7 +78,7 @@ const CUBE_INDICES: &[u16] = &[
 
 pub struct GameState {
     orbit_camera: Option<OrbitCamera>,
-    cube: Option<EntityId>,
+    cube: Option<(MeshId, MaterialId, Transform)>,
 }
 
 impl Game for GameState {
@@ -117,21 +117,27 @@ impl Game for GameState {
         let mesh = Mesh::from_arrays(CUBE_POSITIONS, CUBE_UVS, CUBE_INDICES, &device);
         let mesh_id = state.resources.meshes.insert(mesh);
 
-        let props = InstanceProperties::default();
-        self.cube = Some(state.scene.add_entity(mesh_id, material_id, props));
+        // let props = InstanceProperties::default();
+        // self.cube = Some(state.scene.add_entity(mesh_id, material_id, props));
+        self.cube = Some((mesh_id, material_id, Transform::default()));
     }
 
     fn update(&mut self, state: &mut State, elapsed: f32) {
         if let Some(camera_controller) = &self.orbit_camera {
             camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
-        if let Some(cube) = self.cube {
-            let transform = &mut state.scene.get_entity_mut(cube).properties.transform;
 
-            transform.position = Vec3::new(state.time.total_elapsed.sin(), 0.0, 0.0);
+        if let Some((_, _, transform)) = &mut self.cube {
+            transform.position = Vec3::new(3.0 * state.time.total_elapsed.sin(), 0.0, 0.0);
             transform.rotation =
                 Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * transform.rotation;
+        }
+    }
+
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+        if let Some((mesh_id, material_id, transform)) = self.cube {
+            commands.push(DrawCommand::Draw(mesh_id, material_id, transform));
         }
     }
 
@@ -148,6 +154,9 @@ pub async fn run() {
     Helia::new().run(Box::new(game_state)).await;
 }
 
+use material::MaterialId;
+use mesh::MeshId;
+use transform::Transform;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 

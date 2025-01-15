@@ -244,6 +244,13 @@ impl Game for GameState {
         }
     }
 
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+        // TODO: we don't really need a scene for this
+        // it's all UI based, we could/should order it ourselves
+        // Ideally we'd also be able to disable the depth testing
+        commands.push(DrawCommand::DrawScene());
+    }
+
     fn resize(&mut self, state: &mut State) {
         state.scene.camera.size = OrthographicSize::from_size(state.size);
     }

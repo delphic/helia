@@ -131,6 +131,7 @@ pub struct Shader {
     pub requires_ordering: bool,
     bytes_delegate: fn(entity: &Entity, bytes: &mut Vec<u8>),
     bytes_buffer: Vec<u8>,
+    next_offset: u64,
 }
 
 impl Shader {
@@ -230,17 +231,23 @@ impl Shader {
             requires_ordering: alpha_blending,
             bytes_delegate: to_bytes_delegate,
             bytes_buffer: Vec::new(),
+            next_offset: 0,
         }
     }
 
-    pub fn write_entity_uniforms(&mut self, entity: &mut Entity, offset: u64, queue: &wgpu::Queue) {
+    pub fn reset_offset(&mut self) {
+        self.next_offset = 0;
+    }
+
+    pub fn write_entity_uniforms(&mut self, entity: &mut Entity, queue: &wgpu::Queue) {
         // previously the writing to the queue as done as part of the delegate,
         // which avoided the use of a Vec just for returning uniform data per entity
         // however this formulation has 'cleaner' separation of responsibility. We should probably
         // profile this to see if there is significant performance impact and consider reverting
         // to the delegate doing the queue write to avoid the unnecessary shuffling with Vec.
         // The use of a delegates is to avoid requiring type information when storing the shader.
-        entity.uniform_offset = offset * self.entity_bind_group.alignment;
+        entity.uniform_offset = self.next_offset * self.entity_bind_group.alignment;
+        self.next_offset += 1;
         (self.bytes_delegate)(entity, &mut self.bytes_buffer);
         queue.write_buffer(
             &self.entity_bind_group.buffer,

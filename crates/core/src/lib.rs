@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
+use entity::{Entity, InstanceProperties};
 use glam::*;
 use slotmap::SlotMap;
 use winit::{
@@ -191,11 +192,10 @@ impl State {
     }
 
     fn update(&mut self) {
-        self.scene
-            .update(&mut self.resources, &self.queue, &self.device);
+        // Do we need this now that we've moved the scene.update as a render prestep?
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    fn render(&mut self, draw_commands: &Vec<DrawCommand>) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
 
         let view = output
@@ -207,14 +207,164 @@ impl State {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
+        
+        let mut entities = Vec::new();
+        let mut entity_count_by_shader = HashMap::<ShaderId, u64>::new();
+        for command in draw_commands.iter() {
+            match command {
+                DrawCommand::Draw(
+                    mesh,
+                    material,
+                    transform) => {
 
-        // todo: would prefer camera,render(scene)
-        self.scene.render(
-            &view,
-            &self.depth_texture.view,
-            &mut encoder,
-            &self.resources,
-        );
+                    let mut entity = Entity::new(*mesh, *material, InstanceProperties::builder().with_transform(*transform).build());
+                    entity.properties.transform.world_matrix = entity.properties.transform.to_local_matrix() * Mat4::IDENTITY;
+                    // TODO: do we want to support transform hierarchies for 'draw' DrawCommands or are we happy requiring a scene 
+                    // Well we don't necessarily have to be smart about it we can just recurse up the hierarchy and do all of them
+                    
+                    // ^^ I think we only actually care about the world_matrix from transform so really our 'entity' should become just
+                    // mesh, material, world_matrix (and other instance properties) - if we're going to treat it as a render object
+                    let shader = self.resources.materials.get(*material).unwrap().shader;
+                    if let Some(count) = entity_count_by_shader.get(&shader) {
+                        entity_count_by_shader.insert(shader, count + 1);
+                    } else {
+                        entity_count_by_shader.insert(shader, 1);
+                    }
+                    entities.push(entity);
+                },
+                DrawCommand::DrawPrefab(prefab_id, transform) => {
+                    if let Some(prefab) = self.scene.prefabs.get(*prefab_id) {
+                        let shader = self.resources.materials.get(prefab.material).unwrap().shader;
+                        if let Some(count) = entity_count_by_shader.get(&shader) {
+                            entity_count_by_shader.insert(shader, count + 1);
+                        } else {
+                            entity_count_by_shader.insert(shader, 1);
+                        }
+                        let mut entity = Entity::new(prefab.mesh, prefab.material, InstanceProperties::builder().with_transform(*transform).build());
+                        entity.properties.transform.world_matrix = entity.properties.transform.to_local_matrix() * Mat4::IDENTITY;
+                        // TODO: do we want to support transform hierarchies for 'draw' DrawCommands or are we happy requiring a scene 
+                        // Well we don't necessarily have to be smart about it we can just recurse up the hierarchy and do all of them
+                        entities.push(entity);
+                    }
+                },
+                DrawCommand::DrawScene() => {
+                    self.scene.update(&mut entity_count_by_shader, &mut self.resources);
+                    self.scene.append_scene_entities(&mut entities);
+                },
+            }
+        }
+        
+        for (shader_id, entity_count) in entity_count_by_shader.iter() {
+            let shader = &mut self.resources.shaders[*shader_id];
+
+            shader.reset_offset();
+            // NOTE: camera dependency, not sure if it's possible to bind a different camera bind group,
+            // I'm not even sure we really need this per shader, TODO: attempt removing from shader and adding to internal camera
+            shader.camera_bind_group.update(&self.scene.camera, &self.queue);
+
+            // Ensure sufficient capacity in each shader to be used for entity uniform data
+            let capacity = shader.entity_bind_group.entity_capacity;
+            if capacity < 2 * entity_count {
+                let mut target_capacity = 2 * capacity;
+                while target_capacity < 2 * entity_count {
+                    target_capacity *= 2;
+                }
+                shader
+                    .entity_bind_group
+                    .recreate_entity_buffer(target_capacity, &self.device);
+            }
+        }
+
+        // Write instance properties to shader
+        for entity in entities.iter_mut() {
+           let shader_id = self.resources.materials.get(entity.material).unwrap().shader; 
+           self.resources.shaders[shader_id].write_entity_uniforms(entity, &self.queue);
+        }
+        // When we're copying all this entity data around, I'm not sure how much we care about this mut passing
+
+        // This was scene render, but then that was pointless if we want to be able to mix and match draw commands
+        // (though entites was a loop over the scene graph)
+        // Adding scope so render pass is dropped when done
+        {
+            let camera = &self.scene.camera;
+            let view = &view;
+            let depth_view = &self.depth_texture.view;
+            // ^^ Arguably we don't need this and the attachment it's used in if we're rendering 2D
+            // I guess the question is, are these separate render passes? 
+            let resources = &self.resources;
+
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[
+                    // This is what @location(0) in fragment shader targets
+                    Some(wgpu::RenderPassColorAttachment {
+                        view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(camera.clear_color),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    }),
+                ],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                ..Default::default()
+            });
+
+            let mut currently_bound_shader_id: Option<ShaderId> = None;
+            let mut currently_bound_mesh_id: Option<MeshId> = None;
+            let mut currently_bound_material_id: Option<MaterialId> = None;
+
+            for entity in entities.iter() {
+                let mesh = &resources.meshes[entity.mesh];
+                let material = &resources.materials[entity.material];
+                let shader = &resources.shaders[material.shader];
+
+                let entity_bind_group = &shader.entity_bind_group.bind_group;
+
+                if currently_bound_material_id != Some(entity.material) {
+                    currently_bound_material_id = Some(entity.material);
+
+                    if currently_bound_shader_id != Some(material.shader) {
+                        currently_bound_shader_id = Some(material.shader);
+                        render_pass.set_pipeline(&shader.render_pipeline);
+                        render_pass.set_bind_group(0, &shader.camera_bind_group.bind_group, &[]); 
+                        // TODO: Why can't we use camera.bind_group ? I reckon we probably can at the moment
+                        // but that's presumably because all the shaders use the same setup for camera uniforms
+                    }
+
+                    render_pass.set_bind_group(2, &material.diffuse_bind_group, &[]);
+                    // We're presumably going to share the layout for textures across shaders
+                    // therefore we can and should share texture bind groups across materials
+                    // only rebind when appropriate, rather than rebinding per material
+                    // however should only do this if we're bothering to order the scene graph
+                    // to group materials with the same textures
+                }
+
+                if currently_bound_mesh_id != Some(entity.mesh) {
+                    currently_bound_mesh_id = Some(entity.mesh);
+
+                    render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                    render_pass
+                        .set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                }
+
+                // using uniform with offset approach of
+                // https://github.com/gfx-rs/wgpu/tree/master/wgpu/examples/shadow
+                render_pass.set_bind_group(
+                    1,
+                    entity_bind_group,
+                    &[entity.uniform_offset as wgpu::DynamicOffset],
+                );
+                render_pass.draw_indexed(0..mesh.index_count, 0, 0..1);
+            }
+        }
 
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -348,7 +498,10 @@ impl ApplicationHandler<UserEvent> for App {
                 state.update();
                 state.input.frame_finished();
 
-                match state.render() {
+                let mut draw_commands = Vec::new(); // probably don't want a new one each frame but hey prototyping
+                self.game.render(&mut draw_commands);
+
+                match state.render(&draw_commands) {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => {
@@ -371,9 +524,17 @@ impl ApplicationHandler<UserEvent> for App {
     }
 }
 
+pub enum DrawCommand {
+    Draw(MeshId, MaterialId, transform::Transform),
+    DrawPrefab(prefab::PrefabId, transform::Transform),
+    DrawScene(),
+}
+// TODO: ^^ would be good to support multiple cameras - but if we do that we want to only pass a cameraId rather than copying around all the data
+
 pub trait Game {
     fn init(&mut self, state: &mut State);
     fn update(&mut self, state: &mut State, elapsed: f32);
+    fn render(&mut self, commands: &mut Vec<DrawCommand>);
     fn resize(&mut self, state: &mut State);
 }
 
@@ -426,5 +587,7 @@ impl Helia {
 
         let mut app = App::new(game, self.title.clone(), self.resizable, self.window_size, &event_loop);
         event_loop.run_app(&mut app).ok();
+
+        // Consider EventLoopExtWebSys::spawn_app for WASM to avoid exception
     }
 }

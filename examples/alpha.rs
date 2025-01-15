@@ -143,6 +143,10 @@ impl Game for GameState {
         }
     }
 
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+        commands.push(DrawCommand::DrawScene());
+    }
+
     fn resize(&mut self, state: &mut State) {
         state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
     }

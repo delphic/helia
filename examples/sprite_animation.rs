@@ -112,6 +112,10 @@ impl Game for GameState {
         }
     }
 
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+        commands.push(DrawCommand::DrawScene());
+    }
+
     fn resize(&mut self, state: &mut State) {
         let ratio = state.size.width as f32 / state.size.height as f32;
         state.scene.camera.size = OrthographicSize::from_ratio_height(ratio, 1.0);
