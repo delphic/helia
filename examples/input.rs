@@ -40,8 +40,8 @@ impl Game for GameState {
         };
     }
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
-        commands.push(DrawCommand::DrawScene());
+    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State) {
+        state.scene.render(commands);
     }
 
     fn resize(&mut self, state: &mut State) {

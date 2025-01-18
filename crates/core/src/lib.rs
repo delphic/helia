@@ -194,7 +194,8 @@ impl State {
     }
 
     fn update(&mut self) {
-        // Do we need this now that we've moved the scene.update as a render prestep?
+        // TODO: Make examples responsible for updating the scene themselves 
+        self.scene.update(&self.resources);
     }
 
     fn render(&mut self, draw_commands: &Vec<DrawCommand>) -> Result<(), wgpu::SurfaceError> {
@@ -218,12 +219,10 @@ impl State {
                     mesh,
                     material,
                     transform) => {
-
                     let entity = Entity::new(
                         *mesh,
                         *material,
                         InstanceProperties::builder().with_matrix((*transform).into()).build());
-                    // ^^ consider how to best support transform hiearchies
                     
                     let shader = self.resources.materials.get(*material).unwrap().shader;
                     if let Some(count) = entity_count_by_shader.get(&shader) {
@@ -248,10 +247,15 @@ impl State {
                         entities.push(entity);
                     }
                 },
-                DrawCommand::DrawScene() => {
-                    self.scene.update(&mut entity_count_by_shader, &mut self.resources);
-                    self.scene.append_scene_entities(&mut entities);
-                },
+                DrawCommand::DrawEntity(entity) => {
+                    let shader = self.resources.materials.get(entity.material).unwrap().shader;
+                    if let Some(count) = entity_count_by_shader.get(&shader) {
+                        entity_count_by_shader.insert(shader, count + 1);
+                    } else {
+                        entity_count_by_shader.insert(shader, 1);
+                    }
+                    entities.push(*entity);
+                }
             }
         }
         
@@ -500,7 +504,7 @@ impl ApplicationHandler<UserEvent> for App {
                 state.input.frame_finished();
 
                 let mut draw_commands = Vec::new(); // probably don't want a new one each frame but hey prototyping
-                self.game.render(&mut draw_commands);
+                self.game.render(&mut draw_commands, state);
 
                 match state.render(&draw_commands) {
                     Ok(_) => {}
@@ -528,14 +532,14 @@ impl ApplicationHandler<UserEvent> for App {
 pub enum DrawCommand {
     Draw(MeshId, MaterialId, transform::Transform),
     DrawPrefab(prefab::PrefabId, transform::Transform),
-    DrawScene(),
+    DrawEntity(Entity),
 }
 // TODO: ^^ would be good to support multiple cameras - but if we do that we want to only pass a cameraId rather than copying around all the data
 
 pub trait Game {
     fn init(&mut self, state: &mut State);
     fn update(&mut self, state: &mut State, elapsed: f32);
-    fn render(&mut self, commands: &mut Vec<DrawCommand>);
+    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State); // Use of State is temporary whilst we decouple state.scene
     fn resize(&mut self, state: &mut State);
 }
 

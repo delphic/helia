@@ -135,7 +135,7 @@ impl Game for GameState {
         }
     }
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+    fn render(&mut self, commands: &mut Vec<DrawCommand>, _state: &mut State) {
         if let Some((mesh_id, material_id, transform)) = self.cube {
             commands.push(DrawCommand::Draw(mesh_id, material_id, transform));
         }

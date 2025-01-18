@@ -5,10 +5,10 @@ use crate::entity::*;
 use crate::material::*;
 use crate::mesh::*;
 use crate::prefab::*;
-use crate::shader::ShaderId;
 use crate::transform::Transform;
 use crate::transform_hierarchy::HierarchyId;
 use crate::transform_hierarchy::TransformHierarchy;
+use crate::DrawCommand;
 use crate::Resources;
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
 use slotmap::{DenseSlotMap, SlotMap};
@@ -42,6 +42,10 @@ impl Scene {
     // requires the nesting of properties, ideally this would be unnecessary, and the
     // scene graph would take care of the grouping, however until we have figured out
     // how to support custom properties going to keep it this way.
+
+    // Prefabs are our way of using game code to explicitly state "these all have the same mesh"
+    // and hence group them together minimising the need for rebinds, however I'm not sure
+    // how much it's gaining us, so tempted to remove for simplicity
 
     pub fn add_instance(
         &mut self,
@@ -108,22 +112,11 @@ impl Scene {
     pub fn get_entity_mut(&mut self, id: EntityId) -> &mut Entity {
         &mut self.entities[id].1
     }
-    // ^^ TODO: I think what I want to do remove this get_entity / get_entity_mut 
-    // and instead expose methods to submit instance data for an entity i.e. copy in 
-    // instance properties, and transform data, the only question is where to manage 
-    // the transform heirarchies, if transforms always updated themselves then we could
-    // just calculate the world matrix when submitting.
 
     pub fn update(
         &mut self,
-        entity_count_by_shader: &mut HashMap::<ShaderId, u64>,
-        resources: &mut Resources
+        resources: &Resources
     ) {
-        // todo: check if any prefab instance has had material or mesh not matching prefab defn
-        // if so, move to entities and remove from instances
-        // although could argue the game code should explicitly break the prefab connection rather
-        // than checking every frame for something that's going to be quite rare
-
         // Update Entity World Matrix From Hierarchy
         for (_, (hierarchy_id, entity)) in self.entities.iter_mut() {
             entity.properties.world_matrix = self.hierarchy.get_world_matrix(*hierarchy_id).unwrap();
@@ -154,16 +147,7 @@ impl Scene {
             if !entities_by_shader.contains_key(&material.shader) {
                 entities_by_shader.insert(material.shader, Vec::new());
             }
-            // NOTE: does not support mutating the material id of prefab instances
-            // but it does read them directly so you could easily cause an issue by changing
-            // a prefab instance material id to a one using a shader which was not otherwise
-            // used in the scene. We could consider separating MeshId / MaterialId store from
-            // the data we do expect the game to mutate (e.g. transform).
-
-            // Also by just adding entities individually to the very basic scene graph
-            // we've lost the ability to check bindings once per prefab, however we had not
-            // profiled that so we should not lament its loss. If we wanted to see if it was an
-            // improvement, then we would need an entity buffer per prefab
+            
             let entities = &mut entities_by_shader.get_mut(&material.shader).unwrap();
             for id in prefab
                 .instances
@@ -180,13 +164,7 @@ impl Scene {
         self.scene_graph.clear();
 
         for (shader_id, entities) in entities_by_shader.iter_mut() {
-            let shader = &mut resources.shaders[*shader_id];
-            if let Some(count) = entity_count_by_shader.get(shader_id) {
-                entity_count_by_shader.insert(*shader_id, count + entities.len() as u64);
-            } else {
-                entity_count_by_shader.insert(*shader_id, entities.len() as u64);
-            }
-
+            let shader = &resources.shaders[*shader_id];
             if shader.requires_ordering {
                 alpha_entities.append(entities);
             } else {
@@ -215,9 +193,9 @@ impl Scene {
         self.scene_graph.append(&mut alpha_entities);
     }
 
-    pub fn append_scene_entities(&mut self, entities: &mut Vec<Entity>) {
+    pub fn render(&mut self, draw_commands: &mut Vec<DrawCommand>) {
         for entity in self.scene_graph.iter().map(|id| &self.entities[*id]) {
-            entities.push(entity.1);
+            draw_commands.push(DrawCommand::DrawEntity(entity.1));
         }
     }
 }

@@ -82,6 +82,9 @@ pub struct TextMesh {
 }
 
 impl TextMesh {
+    // TODO: Remove state and putting in scene
+    // instead have a something to generate the relevant draw commands 
+
     pub fn new(
         text: String,
         position: Vec3,
