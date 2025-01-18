@@ -113,6 +113,8 @@ impl Scene {
         &mut self.entities[id].1
     }
 
+    /// Updates entity world matrices from hierarchy
+    /// Builds ordered scene graph, including ordering based on camera depth for alpha blended objects
     pub fn update(
         &mut self,
         resources: &Resources

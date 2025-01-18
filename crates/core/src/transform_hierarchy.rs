@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, hash::Hash};
 
 use glam::{Mat4, Quat, Vec3};
 use slotmap::{self, SecondaryMap, SlotMap};
@@ -13,7 +13,7 @@ pub struct HierarchyNode {
 }
 
 /// Stores a hierarchy of transforms and maintains an accurate set of world matrices
-/// NOTE: Currently does not protect against circular references
+/// NOTE: Does not prevent circular references on insertion
 pub struct TransformHierarchy {
     hierarchy: SlotMap<HierarchyId, HierarchyNode>,
     transforms: SecondaryMap<HierarchyId, Transform>,
@@ -94,12 +94,18 @@ impl TransformHierarchy {
         if let Some(node) = self.hierarchy.get(hierarchy_id) {
             let world_matrix = self.get_parent_matrix(node.parent) * transform.to_local_matrix();
             self.world_matrices[hierarchy_id] = world_matrix;
-            Self::update_decendant_matrices(
-                hierarchy_id,
-                world_matrix,
-                &self.hierarchy,
-                &self.transforms,
-                &mut self.world_matrices);
+            if !node.children.is_empty() {
+                let mut touched = HashSet::new();
+                touched.insert(hierarchy_id);
+                Self::update_decendant_matrices(
+                    hierarchy_id,
+                    world_matrix,
+                    &self.hierarchy,
+                    &self.transforms,
+                    &mut self.world_matrices,
+                    &mut touched);
+            }
+
         } else {
             self.world_matrices[hierarchy_id] = transform.into();
         }
@@ -136,15 +142,20 @@ impl TransformHierarchy {
         parent_matrix: Mat4,
         hierarchy: &SlotMap<HierarchyId, HierarchyNode>,
         transforms: &SecondaryMap<HierarchyId, Transform>,
-        matrices: &mut SecondaryMap<HierarchyId, Mat4>) {
+        matrices: &mut SecondaryMap<HierarchyId, Mat4>,
+        touched: &mut HashSet<HierarchyId>,
+    ) {
         if let Some(node) = hierarchy.get(hierarchy_id) {
             for child in node.children.iter() {
-                // Could avoid the need to store transforms if we did inver_previous_parent_matrix * parent_matrix * local
-                // However this could potentially introduce drift from floating point precision
-                let world_matrix = parent_matrix * transforms[*child].to_local_matrix();
-                matrices[*child] = world_matrix;
-                // BUG: This will stack overflow if you create a circular loop of transforms
-                Self::update_decendant_matrices(*child, world_matrix, hierarchy, transforms, matrices);
+                if touched.insert(*child) {
+                    // Could avoid the need to store transforms if we did inver_previous_parent_matrix * parent_matrix * local
+                    // However this could potentially introduce drift from floating point precision
+                    let world_matrix = parent_matrix * transforms[*child].to_local_matrix();
+                    matrices[*child] = world_matrix;
+                    Self::update_decendant_matrices(*child, world_matrix, hierarchy, transforms, matrices, touched);
+                } else {
+                    log::warn!("Cyclical transform hierarchy detected {child:?} already touched");
+                }
             }
         }
     }
