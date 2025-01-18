@@ -95,7 +95,7 @@ impl Game for GameState {
                 InstanceProperties::builder()
                     .with_uv_offset_scale(offset, scale)
                     .build(),
-            ),
+            ).0,
         );
     }
 

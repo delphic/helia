@@ -1,9 +1,6 @@
 use glam::*;
 use helia::{
-    entity::{EntityId, InstanceProperties},
-    prefab::PrefabId,
-    transform::Transform,
-    Color, State,
+    entity::{EntityId, InstanceProperties}, prefab::PrefabId, transform::Transform, transform_hierarchy::HierarchyId, Color, State
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -12,7 +9,7 @@ use crate::character::Character;
 pub struct Grid {
     pub size: IVec2,
     base_offset: Vec3,
-    highlights: Vec<(EntityId, IVec2)>,
+    highlights: Vec<((EntityId, HierarchyId), IVec2)>,
     pub occupancy: HashSet<IVec2>,
 }
 
@@ -105,7 +102,7 @@ impl Grid {
     pub fn set_movement_highlights(&self, character: &Character, state: &mut State) {
         let reachable_positions = character.get_reachable_positions();
         for (id, highlight_pos) in self.highlights.iter() {
-            let entity = state.scene.get_entity_mut(*id);
+            let entity = state.scene.get_entity_mut(id.0);
             if reachable_positions.contains_key(&highlight_pos) {
                 entity.properties.color = Color {
                     r: 0.0,
@@ -124,7 +121,7 @@ impl Grid {
         if self.is_in_bounds(pos) {
             let index = (pos.x + pos.y * self.size.x) as usize;
             let id = self.highlights[index].0;
-            let entity = state.scene.get_entity_mut(id);
+            let entity = state.scene.get_entity_mut(id.0);
             entity.properties.color = color;
             entity.visible = true;
         }
@@ -132,7 +129,7 @@ impl Grid {
 
     pub fn clear_highlights(&self, state: &mut State) {
         for (id, _) in self.highlights.iter() {
-            let entity = state.scene.get_entity_mut(*id);
+            let entity = state.scene.get_entity_mut(id.0);
             entity.visible = false;
         }
     }

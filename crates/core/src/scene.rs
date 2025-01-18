@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use crate::camera::Camera;
 use crate::entity::*;
@@ -8,17 +7,18 @@ use crate::mesh::*;
 use crate::prefab::*;
 use crate::shader::ShaderId;
 use crate::transform::Transform;
+use crate::transform_hierarchy::HierarchyId;
+use crate::transform_hierarchy::TransformHierarchy;
 use crate::Resources;
-use glam::Mat4;
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
-use slotmap::{DenseSlotMap, SecondaryMap, SlotMap};
+use slotmap::{DenseSlotMap, SlotMap};
 
 pub struct Scene {
     pub camera: Camera,
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
-    pub render_objects: Vec<EntityId>,
-    hierarchy: SlotMap<EntityId, Transform>,
-    entities: SecondaryMap<EntityId, Entity>,
+    pub hierarchy: TransformHierarchy,
+    render_objects: Vec<EntityId>,
+    entities: SlotMap<EntityId, (HierarchyId, Entity)>,
     scene_graph: Vec<EntityId>,
 }
 
@@ -28,8 +28,8 @@ impl Scene {
             camera: Camera::default(),
             prefabs: DenseSlotMap::with_key(),
             render_objects: Vec::new(),
-            hierarchy: SlotMap::with_key(),
-            entities: SecondaryMap::new(),
+            hierarchy: TransformHierarchy::new(),
+            entities: SlotMap::with_key(),
             scene_graph: Vec::new(),
         }
     }
@@ -48,14 +48,14 @@ impl Scene {
         prefab_id: PrefabId,
         transform: Transform,
         properties: InstanceProperties,
-    ) -> EntityId {
+    ) -> (EntityId, HierarchyId) {
         let prefab = self.prefabs.get_mut(prefab_id).unwrap();
-        let entity_id = self
+        let hierarchy_id = self
             .hierarchy
-            .insert(transform);
-        self.entities.insert(entity_id, Entity::new(prefab.mesh, prefab.material, properties));
+            .insert(transform, None);
+        let entity_id = self.entities.insert((hierarchy_id, Entity::new(prefab.mesh, prefab.material, properties)));
         prefab.instances.push(entity_id);
-        entity_id
+        (entity_id, hierarchy_id)
     }
 
     pub fn add_entity(
@@ -64,20 +64,21 @@ impl Scene {
         material: MaterialId,
         transform: Transform,
         properties: InstanceProperties,
-    ) -> EntityId {
-        let entity_id = self
+    ) -> (EntityId, HierarchyId) {
+        let hierarchy_id = self
             .hierarchy
-            .insert(transform);
-        self.entities.insert(entity_id, Entity::new(mesh, material, properties));
+            .insert(transform, None);
+        let entity_id = self.entities.insert((hierarchy_id, Entity::new(mesh, material, properties)));
         self.render_objects.push(entity_id);
-        entity_id
+        (entity_id, hierarchy_id)
     }
 
     pub fn remove_entity(&mut self, entity_id: EntityId) {
         if let Some(index) = self.render_objects.iter().position(|x| *x == entity_id) {
             self.render_objects.remove(index);
-            self.hierarchy.remove(entity_id);
-            self.entities.remove(entity_id);
+            if let Some((hierarchy_id, _)) = self.entities.remove(entity_id) {
+                self.hierarchy.remove(hierarchy_id);
+            }
         }
     }
 
@@ -85,8 +86,9 @@ impl Scene {
         if let Some(prefab) = self.prefabs.get_mut(prefab_id) {
             if let Some(index) = prefab.instances.iter().position(|x| *x == entity_id) {
                 prefab.instances.remove(index);
-                self.hierarchy.remove(entity_id);
-                self.entities.remove(entity_id);
+                if let Some((hierarchy_id, _)) = self.entities.remove(entity_id) {
+                    self.hierarchy.remove(hierarchy_id);
+                }
             }
         }
     }
@@ -99,21 +101,12 @@ impl Scene {
         self.scene_graph.clear();
     }
 
-    pub fn get_entity_transform(&self, id: EntityId) -> &Transform {
-        &self.hierarchy[id]
-    }
-
-    pub fn get_entity_transform_mut(&mut self, id: EntityId) -> &mut Transform {
-        &mut self.hierarchy[id]
-    }
-    // ^^ TODO: move to heirarchy data structure
-
     pub fn get_entity(&self, id: EntityId) -> &Entity {
-        &self.entities[id]
+        &self.entities[id].1
     }
 
     pub fn get_entity_mut(&mut self, id: EntityId) -> &mut Entity {
-        &mut self.entities[id]
+        &mut self.entities[id].1
     }
     // ^^ TODO: I think what I want to do remove this get_entity / get_entity_mut 
     // and instead expose methods to submit instance data for an entity i.e. copy in 
@@ -131,51 +124,20 @@ impl Scene {
         // although could argue the game code should explicitly break the prefab connection rather
         // than checking every frame for something that's going to be quite rare
 
+        // Update Entity World Matrix From Hierarchy
+        for (_, (hierarchy_id, entity)) in self.entities.iter_mut() {
+            entity.properties.world_matrix = self.hierarchy.get_world_matrix(*hierarchy_id).unwrap();
+        }
+
         // Build list of entities by shader so we can know how many entities will need to rendered per shader
         // also allows us to add to the scene graph grouped by shader, to minimise rebinds during render pass
         let mut entities_by_shader = HashMap::new();
 
-        // Calculate world matrices
-        let mut recalculated = HashSet::new();
-        let mut pending = Vec::new();
-        let mut entities = self.entities.keys().collect::<Vec<_>>();
-        if let Some(id) = entities.pop() {
-            pending.push(id);
-        }
-        while let Some(id) = pending.last() {
-            let mut matrix = Mat4::IDENTITY;
-            if let Some(parent) = self.hierarchy[*id].parent {
-                if !recalculated.contains(&parent) {
-                    pending.push(parent);
-                    continue;
-                } else {
-                    matrix = self.entities[parent].properties.world_matrix;
-                }
-            }
-
-            while let Some(id) = pending.pop() {
-                recalculated.insert(id);
-                matrix = self.hierarchy[id].to_local_matrix() * matrix;
-                self.entities[id].properties.world_matrix = matrix;
-            }
-
-            loop {
-                if let Some(id) = entities.pop() {
-                    if !recalculated.contains(&id) {
-                        pending.push(id);
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-
-        for (id, entity) in self
+        for (id, (_, entity)) in self
             .render_objects
             .iter()
             .map(|id| (id, &self.entities[*id]))
-            .filter(|(_, entity)| entity.visible)
+            .filter(|(_, (_, entity))| entity.visible)
         {
             let material = &resources.materials[entity.material];
             if !entities_by_shader.contains_key(&material.shader) {
@@ -206,7 +168,7 @@ impl Scene {
             for id in prefab
                 .instances
                 .iter()
-                .filter(|id| self.entities[**id].visible)
+                .filter(|id| self.entities[**id].1.visible)
             {
                 entities.push(*id);
             }
@@ -238,11 +200,11 @@ impl Scene {
         alpha_entities.sort_by(|a, b| {
             // This quite possibly works because transform_point results in -translation
             // and then we're sorting from front to back, rather than back to front
-            let world_pos_a = self.entities[*a]
+            let world_pos_a = self.entities[*a].1
                 .properties
                 .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
-            let world_pos_b = self.entities[*b]
+            let world_pos_b = self.entities[*b].1
                 .properties
                 .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
@@ -255,7 +217,7 @@ impl Scene {
 
     pub fn append_scene_entities(&mut self, entities: &mut Vec<Entity>) {
         for entity in self.scene_graph.iter().map(|id| &self.entities[*id]) {
-            entities.push(*entity);
+            entities.push(entity.1);
         }
     }
 }

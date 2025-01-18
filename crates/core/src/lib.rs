@@ -22,6 +22,7 @@ pub mod prefab;
 pub mod scene;
 pub mod time;
 pub mod transform;
+pub mod transform_hierarchy;
 
 pub mod orbit_camera;
 
@@ -221,7 +222,7 @@ impl State {
                     let entity = Entity::new(
                         *mesh,
                         *material,
-                        InstanceProperties::builder().with_matrix(transform.to_local_matrix()).build());
+                        InstanceProperties::builder().with_matrix((*transform).into()).build());
                     // ^^ consider how to best support transform hiearchies
                     
                     let shader = self.resources.materials.get(*material).unwrap().shader;
@@ -243,7 +244,7 @@ impl State {
                         let entity = Entity::new(
                             prefab.mesh,
                             prefab.material,
-                            InstanceProperties::builder().with_matrix(transform.to_local_matrix()).build());
+                            InstanceProperties::builder().with_matrix((*transform).into()).build());
                         entities.push(entity);
                     }
                 },

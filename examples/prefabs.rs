@@ -107,7 +107,7 @@ impl Game for GameState {
                     (
                         transform, 
                         InstanceProperties::builder()
-                            .with_matrix(transform.to_local_matrix())
+                            .with_matrix(transform.into())
                             .build()
                     )
                 })

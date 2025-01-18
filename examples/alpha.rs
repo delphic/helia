@@ -1,7 +1,8 @@
 use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
-    entity::{EntityId, InstanceProperties},
+    entity::InstanceProperties,
+    transform_hierarchy::HierarchyId,
     material::Material,
     mesh::Mesh,
     orbit_camera::*,
@@ -79,7 +80,7 @@ const CUBE_INDICES: &[u16] = &[
 
 pub struct GameState {
     orbit_camera: Option<OrbitCamera>,
-    cubes: Vec<EntityId>,
+    cubes: Vec<(HierarchyId, Transform)>,
     time: f32,
 }
 
@@ -122,10 +123,10 @@ impl Game for GameState {
         for i in 0..3 {
             let transform = Transform::from_position(-2.0 * (i as f32) * Vec3::Z);
             let props = InstanceProperties::builder()
-                .with_matrix(transform.to_local_matrix())
+                .with_matrix(transform.into())
                 .build();
             self.cubes
-                .push(state.scene.add_entity(mesh_id, material_id, transform, props));
+                .push((state.scene.add_entity(mesh_id, material_id, transform, props).1, transform));
         }
     }
 
@@ -135,12 +136,11 @@ impl Game for GameState {
             camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
         }
 
-        for (i, cube) in self.cubes.iter().enumerate() {
-            let transform = &mut state.scene.get_entity_transform_mut(*cube);
+        for (i, (id, transform)) in self.cubes.iter_mut().enumerate() {
             transform.position = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
-            transform.rotation =
-                Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
+            transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * transform.rotation;
+            state.scene.hierarchy.set_transform(*id, *transform);
         }
     }
 

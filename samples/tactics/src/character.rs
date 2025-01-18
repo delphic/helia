@@ -8,6 +8,7 @@ use helia::{
     transform::Transform,
     *,
 };
+use transform_hierarchy::HierarchyId;
 
 use crate::grid::*;
 
@@ -15,7 +16,7 @@ pub struct Character {
     pub position: IVec2,
     pub last_position: IVec2,
     pub movement: u16,
-    sprite: EntityId,
+    sprite: (EntityId, HierarchyId),
     distance_map: HashMap<IVec2, u16>,
 }
 
@@ -60,12 +61,13 @@ impl Character {
 
     pub fn perform_move(&mut self, delta: IVec2, grid: &Grid, state: &mut State) {
         self.position += delta;
-        let transform = &mut state.scene.get_entity_transform_mut(self.sprite);
-        transform.position = grid.get_translation_for_position(self.position);
+        state.scene.hierarchy.set_transform(
+            self.sprite.1, 
+            Transform::from_position(grid.get_translation_for_position(self.position)));
     }
 
     pub fn flip_visual(&self, state: &mut State) {
-        let entity = state.scene.get_entity_mut(self.sprite);
+        let entity = state.scene.get_entity_mut(self.sprite.0);
         entity.properties.uv_scale = Vec2::new(
             -1.0 * entity.properties.uv_scale.x,
             entity.properties.uv_scale.y,
