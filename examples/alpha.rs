@@ -108,7 +108,7 @@ impl Game for GameState {
             pixel_ratio: 1.0,
         };
 
-        state.scene.camera = camera;
+        state.camera = camera;
 
         // Makin' Textures
         let texture_bytes = include_bytes!("../assets/lena.png");
@@ -133,7 +133,7 @@ impl Game for GameState {
     fn update(&mut self, state: &mut State, elapsed: f32) {
         self.time += elapsed; // todo: should be getting this from helia
         if let Some(camera_controller) = &self.orbit_camera {
-            camera_controller.update_camera(&mut state.scene.camera, &state.input, elapsed);
+            camera_controller.update_camera(&mut state.camera, &state.input, elapsed);
         }
 
         for (i, (id, transform)) in self.cubes.iter_mut().enumerate() {
@@ -149,7 +149,7 @@ impl Game for GameState {
     }
 
     fn resize(&mut self, state: &mut State) {
-        state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
+        state.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
     }
 }
 

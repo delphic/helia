@@ -190,7 +190,7 @@ impl Game for GameState {
 
         self.load_resources(state);
 
-        state.scene.camera = camera;
+        state.camera = camera;
 
         let mut battle_state = BattleState::new(&self.resources, state);
 
@@ -248,10 +248,13 @@ impl Game for GameState {
         // it's all UI based, we could/should order it ourselves
         // Ideally we'd also be able to disable the depth testing
         state.scene.render(commands);
+        if let Stage::Battle { state } = &self.stage {
+            state.render(commands);
+        }
     }
-    
+
     fn resize(&mut self, state: &mut State) {
-        state.scene.camera.size = OrthographicSize::from_size(state.size);
+        state.camera.size = OrthographicSize::from_size(state.size);
     }
 }
 

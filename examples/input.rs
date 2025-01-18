@@ -27,12 +27,12 @@ impl Game for GameState {
             pixel_ratio: 1.0,
         };
 
-        state.scene.camera = camera;
+        state.camera = camera;
     }
 
     fn update(&mut self, state: &mut State, _elapsed: f32) {
         let position = state.input.mouse_position;
-        state.scene.camera.clear_color = Color {
+        state.camera.clear_color = Color {
             r: position.x / state.size.width as f64,
             g: 0.2,
             b: position.y / state.size.height as f64,
@@ -45,7 +45,7 @@ impl Game for GameState {
     }
 
     fn resize(&mut self, state: &mut State) {
-        state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
+        state.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
     }
 }
 

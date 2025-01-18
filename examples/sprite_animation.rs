@@ -84,7 +84,7 @@ impl Game for GameState {
             pixel_ratio: 1.0,
         };
 
-        state.scene.camera = camera;
+        state.camera = camera;
 
         let (scale, offset) = self.calculate_scale_offset(self.current_frame);
         self.lena = Some(
@@ -120,7 +120,7 @@ impl Game for GameState {
 
     fn resize(&mut self, state: &mut State) {
         let ratio = state.size.width as f32 / state.size.height as f32;
-        state.scene.camera.size = OrthographicSize::from_ratio_height(ratio, 1.0);
+        state.camera.size = OrthographicSize::from_ratio_height(ratio, 1.0);
     }
 }
 

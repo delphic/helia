@@ -34,7 +34,7 @@ impl Game for GameState {
         // looks like [base64](https://docs.rs/base64/latest/base64/) crate for decoding data uris as well as maybe
         // https://docs.rs/percent-encoding/latest/percent_encoding/fn.percent_decode.html
 
-        state.scene.camera = camera;
+        state.camera = camera;
     }
 
     fn update(&mut self, _state: &mut State, _elapsed: f32) {}
@@ -44,7 +44,7 @@ impl Game for GameState {
     }
 
     fn resize(&mut self, state: &mut State) {
-        state.scene.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
+        state.camera.aspect_ratio = state.size.width as f32 / state.size.height as f32;
     }
 }
 

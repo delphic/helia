@@ -57,6 +57,7 @@ pub struct BuildInShaders {
 }
 
 pub struct State {
+    pub camera: camera::Camera,
     pub time: time::Time,
     surface: wgpu::Surface<'static>,
     pub device: wgpu::Device,
@@ -154,6 +155,7 @@ impl State {
         let scene = Scene::new();
 
         Self {
+            camera: camera::Camera::default(),
             time: time::Time::default(),
             surface,
             device,
@@ -195,7 +197,7 @@ impl State {
 
     fn update(&mut self) {
         // TODO: Make examples responsible for updating the scene themselves 
-        self.scene.update(&self.resources);
+        self.scene.update(&self.camera, &self.resources);
     }
 
     fn render(&mut self, draw_commands: &Vec<DrawCommand>) -> Result<(), wgpu::SurfaceError> {
@@ -264,7 +266,7 @@ impl State {
 
             shader.reset_offset();
             // NOTE: camera dependency, see the render pass for more details
-            shader.camera_bind_group.update(&self.scene.camera, &self.queue);
+            shader.camera_bind_group.update(&self.camera, &self.queue);
 
             // Ensure sufficient capacity in each shader to be used for entity uniform data
             let capacity = shader.entity_bind_group.entity_capacity;
@@ -290,7 +292,7 @@ impl State {
         // (though entites was a loop over the scene graph)
         // Adding scope so render pass is dropped when done
         {
-            let camera = &self.scene.camera;
+            let camera = &self.camera;
             let view = &view;
             let depth_view = &self.depth_texture.view;
             // ^^ Arguably we don't need this and the attachment it's used in if we're rendering 2D
