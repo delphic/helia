@@ -3,11 +3,11 @@ use crate::grid::*;
 use crate::player::*;
 use crate::text_mesh::*;
 use crate::GameResources;
+use crate::sprite::Sprite;
 
 use glam::*;
 use helia::input::KeyCode;
-use helia::transform::Transform;
-use helia::{entity::*, *};
+use helia::*;
 
 pub enum BattleStage {
     PlayerMove,
@@ -22,6 +22,7 @@ pub struct BattleState {
     stage: BattleStage,
     active_player_index: usize,
     text_mesh: TextMesh,
+    background: Sprite,
 }
 
 impl BattleState {
@@ -40,19 +41,21 @@ impl BattleState {
             helia_sprite_ids.0,
             helia_sprite_ids.1,
             &mut grid,
-            state,
         );
         players.push(Player {
             character: helia_character,
             facing: IVec2::new(-1, 0),
         });
 
-        state.scene.add_entity(
-            bg_sprite_ids.0,
-            bg_sprite_ids.1,
-            Transform::from_position(Vec3::new(0.0, 0.0, -100.0)),
-            InstanceProperties::default(),
-        );
+        let background = Sprite {
+            mesh_id: bg_sprite_ids.0,
+            material_id: bg_sprite_ids.1,
+            position: Vec3::new(0.0, 0.0, -100.0),
+            scale: Vec3::ONE,
+            uv_offset: Vec2::ZERO,
+            uv_scale: Vec2::ONE,
+            color: Color::WHITE,
+        };
 
         // Font test
         let mini_atlas = resources.fonts[&"mini".to_string()].clone();
@@ -74,14 +77,11 @@ impl BattleState {
                 dummy_ids.0,
                 dummy_ids.1,
                 &mut grid,
-                state,
             );
             dummys.push(dummy_character);
         }
 
-        let highlight_prefab = state.scene.create_prefab(highlight_ids.0, highlight_ids.1);
-
-        grid.init(highlight_prefab, state);
+        grid.init(highlight_ids.0, highlight_ids.1);
 
         Self {
             grid,
@@ -90,28 +90,29 @@ impl BattleState {
             stage: BattleStage::PlayerMove,
             active_player_index: 0,
             text_mesh,
+            background,
         }
     }
 
-    pub fn enter(&mut self, state: &mut State) {
+    pub fn enter(&mut self) {
         let player = &mut self.players[self.active_player_index];
         player.character.start_turn(&self.grid);
-        self.grid.set_movement_highlights(&player.character, state);
+        self.grid.set_movement_highlights(&player.character);
     }
 
     pub fn update(&mut self, state: &mut State, _elapsed: f32) {
         match self.stage {
             BattleStage::PlayerMove => {
                 let player = &mut self.players[self.active_player_index];
-                if let Some(character_move) = player.run_move_stage(&self.grid, state) {
+                if let Some(character_move) = player.run_move_stage(&self.grid, &state.input) {
                     self.grid.occupancy.remove(&character_move.0);
                     self.grid.occupancy.insert(character_move.1);
 
-                    self.grid.clear_highlights(state);
+                    self.grid.clear_highlights();
                     self.stage = BattleStage::PlayerAction;
                     // this is essentially selecting the "skip turn" ability
                     self.grid
-                        .set_highlight(player.character.position, Color::RED, state);
+                        .set_highlight(player.character.position, Color::RED);
                     self.text_mesh.set_text("Testing Testing".to_string());
                     self.text_mesh.translate(Vec3::new(-16.0, 16.0, 0.0));
                     for i in 0..self.text_mesh.text.len() {
@@ -126,7 +127,7 @@ impl BattleState {
                 if state.input.key_down(KeyCode::KeyX) {
                     self.stage = BattleStage::PlayerMove;
                     let player_character = &self.players[self.active_player_index].character;
-                    self.grid.set_movement_highlights(player_character, state);
+                    self.grid.set_movement_highlights(player_character);
                 }
                 if state.input.key_down(KeyCode::KeyZ) {
                     // todo: select and perform player ability
@@ -142,13 +143,13 @@ impl BattleState {
                     dummy.start_turn(&self.grid);
                     let delta = IVec2::new(1, 0);
                     if dummy.is_move_valid(delta) {
-                        dummy.perform_move(delta, &self.grid, state);
+                        dummy.perform_move(delta, &self.grid);
                         self.grid.occupancy.remove(&dummy.last_position);
                         self.grid.occupancy.insert(dummy.position);
                         dummy.last_position = dummy.position;
 
                         // flip, for fun
-                        dummy.flip_visual(state);
+                        dummy.flip_visual();
                     }
                 }
                 // todo: animate, coroutines would be nice
@@ -156,7 +157,7 @@ impl BattleState {
                 // back to the players turn
                 let player = &mut self.players[self.active_player_index];
                 player.character.start_turn(&self.grid);
-                self.grid.set_movement_highlights(&player.character, state);
+                self.grid.set_movement_highlights(&player.character);
                 self.stage = BattleStage::PlayerMove;
                 self.text_mesh.set_text("Helia Tactics!".to_string());
                 self.text_mesh.translate(Vec3::new(0.0, 16.0, 0.0));
@@ -169,6 +170,15 @@ impl BattleState {
     }
     
     pub fn render(&self, commands: &mut Vec<DrawCommand>) {
+        // Currently 
+        commands.push(self.background.to_draw_command());
+        self.grid.render(commands);
+        for player in self.players.iter() {
+            commands.push(player.character.sprite.to_draw_command());
+        }
+        for dummy in self.dummys.iter() {
+            commands.push(dummy.sprite.to_draw_command());
+        }
         self.text_mesh.render(commands);
     }
 }

@@ -45,6 +45,7 @@ const INSTANCE_DISPLACEMENT: Vec3 = Vec3::new(
 
 pub struct GameState {
     orbit_camera: Option<OrbitCamera>,
+    scene: Scene,
 }
 
 impl Game for GameState {
@@ -117,14 +118,14 @@ impl Game for GameState {
         let mesh_id = state.resources.meshes.insert(mesh);
         let black_material_id = state.resources.materials.insert(black_material);
         let rink_material_id = state.resources.materials.insert(rink_material);
-        let lena_prefab_id = state.scene.create_prefab(mesh_id, black_material_id);
-        let lena_alt_prefab_id = state.scene.create_prefab(mesh_id, rink_material_id);
+        let lena_prefab_id = self.scene.create_prefab(mesh_id, black_material_id);
+        let lena_alt_prefab_id = self.scene.create_prefab(mesh_id, rink_material_id);
 
         for (i, (transform, props)) in instances.iter().enumerate() {
             if i % 2 == 0 {
-                state.scene.add_instance(lena_prefab_id, *transform, *props);
+                self.scene.add_instance(lena_prefab_id, *transform, *props);
             } else {
-                state.scene.add_instance(lena_alt_prefab_id, *transform, *props);
+                self.scene.add_instance(lena_alt_prefab_id, *transform, *props);
             }
         }
     }
@@ -133,10 +134,11 @@ impl Game for GameState {
         if let Some(camera_controller) = &self.orbit_camera {
             camera_controller.update_camera(&mut state.camera, &state.input, elapsed);
         }
+        self.scene.update(&state.camera, &state.resources);
     }
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State) {
-        state.scene.render(commands);
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+        self.scene.render(commands);
     }
 
     fn resize(&mut self, state: &mut State) {
@@ -147,10 +149,12 @@ impl Game for GameState {
 pub async fn run() {
     let game_state = GameState {
         orbit_camera: Some(OrbitCamera::new(1.5)),
+        scene: Scene::new(),
     };
     Helia::new().run(Box::new(game_state)).await;
 }
 
+use scene::Scene;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 

@@ -1,16 +1,22 @@
 use glam::*;
 use helia::{
-    entity::{EntityId, InstanceProperties}, prefab::PrefabId, transform::Transform, transform_hierarchy::HierarchyId, Color, State
+    material::MaterialId, mesh::MeshId, Color, DrawCommand
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::character::Character;
+use crate::{character::Character, sprite::Sprite};
 
 pub struct Grid {
     pub size: IVec2,
     base_offset: Vec3,
-    highlights: Vec<((EntityId, HierarchyId), IVec2)>,
+    highlights: Vec<GridHighlight>,
     pub occupancy: HashSet<IVec2>,
+}
+
+pub struct GridHighlight {
+    sprite: Sprite,
+    grid_position: IVec2,
+    visible: bool,
 }
 
 impl Grid {
@@ -26,22 +32,23 @@ impl Grid {
         }
     }
 
-    pub fn init(&mut self, prefab_id: PrefabId, state: &mut State) {
+    pub fn init(&mut self, mesh_id: MeshId, material_id: MaterialId) {
         let n = (self.size.x * self.size.y) as i32;
         for i in 0..n {
-            let position = IVec2::new(i % self.size.x, i / self.size.x);
-            let id = state.scene.add_instance(
-                prefab_id,
-                Transform::from_position(
-                    self.get_translation_for_position(position)
-                        - 16.0 * Vec3::Y
-                        - 32.0 * Vec3::Z,
-                ), // could sort this y offset with better anchoring and base offset
-                InstanceProperties::builder()
-                    .with_color(Color::TRANSPARENT) // Visibility rather than transparent would be nice
-                    .build(),
-            );
-            self.highlights.push((id, position));
+            let grid_position = IVec2::new(i % self.size.x, i / self.size.x);
+            let position = self.get_translation_for_position(grid_position)
+            - 16.0 * Vec3::Y
+            - 32.0 * Vec3::Z;
+            let sprite = Sprite {
+                mesh_id,
+                material_id,
+                position,
+                scale: Vec3::ONE,
+                uv_scale: Vec2::ONE,
+                uv_offset: Vec2::ZERO,
+                color: Color::TRANSPARENT,
+            };
+            self.highlights.push(GridHighlight { sprite, grid_position, visible: true });
         }
     }
 
@@ -99,38 +106,43 @@ impl Grid {
         reachable_positions
     }
 
-    pub fn set_movement_highlights(&self, character: &Character, state: &mut State) {
+    pub fn set_movement_highlights(&mut self, character: &Character) {
         let reachable_positions = character.get_reachable_positions();
-        for (id, highlight_pos) in self.highlights.iter() {
-            let entity = state.scene.get_entity_mut(id.0);
-            if reachable_positions.contains_key(&highlight_pos) {
-                entity.properties.color = Color {
+        for highlight in self.highlights.iter_mut() {
+            if reachable_positions.contains_key(&highlight.grid_position) {
+                highlight.sprite.color = Color {
                     r: 0.0,
                     g: 1.0,
                     b: 1.0,
                     a: 0.5,
                 };
-                entity.visible = true;
+                highlight.visible = true;
             } else {
-                entity.visible = false;
+                highlight.sprite.color = Color::TRANSPARENT;
+                highlight.visible = false;
             };
         }
     }
 
-    pub fn set_highlight(&self, pos: IVec2, color: Color, state: &mut State) {
+    pub fn set_highlight(&mut self, pos: IVec2, color: Color) {
         if self.is_in_bounds(pos) {
             let index = (pos.x + pos.y * self.size.x) as usize;
-            let id = self.highlights[index].0;
-            let entity = state.scene.get_entity_mut(id.0);
-            entity.properties.color = color;
-            entity.visible = true;
+            self.highlights[index].sprite.color = color;
+            self.highlights[index].visible = true;
         }
     }
 
-    pub fn clear_highlights(&self, state: &mut State) {
-        for (id, _) in self.highlights.iter() {
-            let entity = state.scene.get_entity_mut(id.0);
-            entity.visible = false;
+    pub fn clear_highlights(&mut self) {
+        for highlight in self.highlights.iter_mut() {
+            highlight.visible = false;
+        }
+    }
+
+    pub fn render(&self, commands: &mut Vec<DrawCommand>) {
+        for highlight in self.highlights.iter() {
+            if highlight.visible {
+                commands.push(highlight.sprite.to_draw_command());
+            }
         }
     }
 }

@@ -9,7 +9,6 @@ use winit::{
 
 use material::*;
 use mesh::*;
-use scene::*;
 use shader::*;
 use texture::*;
 
@@ -66,7 +65,6 @@ pub struct State {
     pub size: winit::dpi::PhysicalSize<u32>,
     depth_texture: texture::Texture,
     pub input: input::InputState,
-    pub scene: Scene,
     pub resources: Resources,
     pub shaders: BuildInShaders,
     texture_bind_group_layout: wgpu::BindGroupLayout,
@@ -152,8 +150,6 @@ impl State {
         );
         let sprite = resources.shaders.insert(sprite_shader);
 
-        let scene = Scene::new();
-
         Self {
             camera: camera::Camera::default(),
             time: time::Time::default(),
@@ -163,7 +159,6 @@ impl State {
             config,
             size,
             depth_texture,
-            scene,
             texture_bind_group_layout,
             resources,
             input: input::InputState::default(),
@@ -196,8 +191,7 @@ impl State {
     }
 
     fn update(&mut self) {
-        // TODO: Make examples responsible for updating the scene themselves 
-        self.scene.update(&self.camera, &self.resources);
+        /* Don't think we need to do anything here? */
     }
 
     fn render(&mut self, draw_commands: &Vec<DrawCommand>) -> Result<(), wgpu::SurfaceError> {
@@ -216,48 +210,25 @@ impl State {
         let mut entities = Vec::new();
         let mut entity_count_by_shader = HashMap::<ShaderId, u64>::new();
         for command in draw_commands.iter() {
+            let entity = 
             match command {
                 DrawCommand::Draw(
                     mesh,
                     material,
-                    transform) => {
-                    let entity = Entity::new(
+                    transform) => 
+                    Entity::new(
                         *mesh,
                         *material,
-                        InstanceProperties::builder().with_matrix((*transform).into()).build());
-                    
-                    let shader = self.resources.materials.get(*material).unwrap().shader;
-                    if let Some(count) = entity_count_by_shader.get(&shader) {
-                        entity_count_by_shader.insert(shader, count + 1);
-                    } else {
-                        entity_count_by_shader.insert(shader, 1);
-                    }
-                    entities.push(entity);
-                },
-                DrawCommand::DrawPrefab(prefab_id, transform) => {
-                    if let Some(prefab) = self.scene.prefabs.get(*prefab_id) {
-                        let shader = self.resources.materials.get(prefab.material).unwrap().shader;
-                        if let Some(count) = entity_count_by_shader.get(&shader) {
-                            entity_count_by_shader.insert(shader, count + 1);
-                        } else {
-                            entity_count_by_shader.insert(shader, 1);
-                        }
-                        let entity = Entity::new(
-                            prefab.mesh,
-                            prefab.material,
-                            InstanceProperties::builder().with_matrix((*transform).into()).build());
-                        entities.push(entity);
-                    }
-                },
-                DrawCommand::DrawEntity(entity) => {
-                    let shader = self.resources.materials.get(entity.material).unwrap().shader;
-                    if let Some(count) = entity_count_by_shader.get(&shader) {
-                        entity_count_by_shader.insert(shader, count + 1);
-                    } else {
-                        entity_count_by_shader.insert(shader, 1);
-                    }
-                    entities.push(*entity);
+                        InstanceProperties::builder().with_matrix((*transform).into()).build()),
+                DrawCommand::DrawEntity(entity) => *entity,
+            };
+            if let Some(shader) = self.resources.materials.get(entity.material).and_then(|material| Some(material.shader)) {
+                if let Some(count) = entity_count_by_shader.get(&shader) {
+                    entity_count_by_shader.insert(shader, count + 1);
+                } else {
+                    entity_count_by_shader.insert(shader, 1);
                 }
+                entities.push(entity);
             }
         }
         
@@ -506,7 +477,7 @@ impl ApplicationHandler<UserEvent> for App {
                 state.input.frame_finished();
 
                 let mut draw_commands = Vec::new(); // probably don't want a new one each frame but hey prototyping
-                self.game.render(&mut draw_commands, state);
+                self.game.render(&mut draw_commands);
 
                 match state.render(&draw_commands) {
                     Ok(_) => {}
@@ -533,7 +504,6 @@ impl ApplicationHandler<UserEvent> for App {
 
 pub enum DrawCommand {
     Draw(MeshId, MaterialId, transform::Transform),
-    DrawPrefab(prefab::PrefabId, transform::Transform),
     DrawEntity(Entity),
 }
 // TODO: ^^ would be good to support multiple cameras - but if we do that we want to only pass a cameraId rather than copying around all the data
@@ -541,7 +511,7 @@ pub enum DrawCommand {
 pub trait Game {
     fn init(&mut self, state: &mut State);
     fn update(&mut self, state: &mut State, elapsed: f32);
-    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State); // Use of State is temporary whilst we decouple state.scene
+    fn render(&mut self, commands: &mut Vec<DrawCommand>);
     fn resize(&mut self, state: &mut State);
 }
 

@@ -39,8 +39,8 @@ impl Game for GameState {
 
     fn update(&mut self, _state: &mut State, _elapsed: f32) {}
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State) {
-        state.scene.render(commands);
+    fn render(&mut self, _commands: &mut Vec<DrawCommand>) {
+        // If we had something to render then... we'd render it here
     }
 
     fn resize(&mut self, state: &mut State) {

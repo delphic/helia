@@ -2,21 +2,17 @@ use std::collections::HashMap;
 
 use glam::*;
 use helia::{
-    entity::{EntityId, InstanceProperties},
     material::MaterialId,
-    mesh::MeshId,
-    transform::Transform,
-    *,
+    mesh::MeshId, Color,
 };
-use transform_hierarchy::HierarchyId;
 
-use crate::grid::*;
+use crate::{grid::*, sprite::Sprite};
 
 pub struct Character {
     pub position: IVec2,
     pub last_position: IVec2,
     pub movement: u16,
-    sprite: (EntityId, HierarchyId),
+    pub sprite: Sprite,
     distance_map: HashMap<IVec2, u16>,
 }
 
@@ -26,17 +22,17 @@ impl Character {
         mesh_id: MeshId,
         material_id: MaterialId,
         grid: &mut Grid,
-        state: &mut State,
     ) -> Self {
         let position = position.clamp(IVec2::ZERO, grid.size);
-        let sprite = state.scene.add_entity(
+        let sprite = Sprite { 
             mesh_id,
             material_id,
-            Transform::from_position(
-                grid.get_translation_for_position(position),
-            ),
-            InstanceProperties::default(),
-        );
+            position: grid.get_translation_for_position(position),
+            scale: Vec3::ONE,
+            uv_offset: Vec2::ZERO,
+            uv_scale: Vec2::ONE,
+            color: Color::WHITE,
+        };
         grid.occupancy.insert(position);
         Self {
             position,
@@ -59,20 +55,18 @@ impl Character {
         self.distance_map.contains_key(&(self.position + delta))
     }
 
-    pub fn perform_move(&mut self, delta: IVec2, grid: &Grid, state: &mut State) {
+    pub fn perform_move(&mut self, delta: IVec2, grid: &Grid) {
         self.position += delta;
-        state.scene.hierarchy.set_transform(
-            self.sprite.1, 
-            Transform::from_position(grid.get_translation_for_position(self.position)));
+        self.sprite.position = grid.get_translation_for_position(self.position);
     }
 
-    pub fn flip_visual(&self, state: &mut State) {
-        let entity = state.scene.get_entity_mut(self.sprite.0);
-        entity.properties.uv_scale = Vec2::new(
-            -1.0 * entity.properties.uv_scale.x,
-            entity.properties.uv_scale.y,
+    pub fn flip_visual(&mut self) {
+        let uv_scale = self.sprite.uv_scale; 
+        self.sprite.uv_scale = Vec2::new(
+            -1.0 * uv_scale.x,
+            uv_scale.y,
         );
-        entity.properties.uv_offset = if entity.properties.uv_scale.x.is_sign_negative() {
+        self.sprite.uv_offset = if self.sprite.uv_scale.x.is_sign_negative() {
             Vec2::new(1.0, 0.0)
         } else {
             Vec2::ZERO

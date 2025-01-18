@@ -40,8 +40,8 @@ impl Game for GameState {
         };
     }
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State) {
-        state.scene.render(commands);
+    fn render(&mut self, _commands: &mut Vec<DrawCommand>) {
+        // We're just changing the clear colour
     }
 
     fn resize(&mut self, state: &mut State) {

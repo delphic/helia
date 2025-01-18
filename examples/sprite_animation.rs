@@ -4,7 +4,6 @@ use helia::{
     entity::*,
     *,
 };
-use transform::Transform;
 
 // todo: move to helia::aseprite module
 // ideally should be optional module
@@ -47,7 +46,7 @@ pub struct GameState {
     sprite_data: AsepriteAnimation,
     time_in_frame: f32,
     current_frame: usize,
-    lena: Option<EntityId>,
+    lena: Option<Entity>,
 }
 
 impl Game for GameState {
@@ -88,34 +87,34 @@ impl Game for GameState {
 
         let (scale, offset) = self.calculate_scale_offset(self.current_frame);
         self.lena = Some(
-            state.scene.add_entity(
+            Entity::new(
                 mesh_id,
                 lena_material_id,
-                Transform::default(),
                 InstanceProperties::builder()
                     .with_uv_offset_scale(offset, scale)
                     .build(),
-            ).0,
+            )
         );
     }
 
-    fn update(&mut self, state: &mut State, elapsed: f32) {
+    fn update(&mut self, _state: &mut State, elapsed: f32) {
         self.time_in_frame += elapsed * 1000.0;
         let frame_duration = self.sprite_data.frames[self.current_frame].duration as f32;
         if self.time_in_frame > frame_duration {
             self.time_in_frame -= frame_duration;
             self.current_frame = (self.current_frame + 1) % self.sprite_data.frames.len();
-            if let Some(entity_id) = self.lena {
-                let (scale, offset) = self.calculate_scale_offset(self.current_frame);
-                let lena = state.scene.get_entity_mut(entity_id);
-                lena.properties.uv_scale = scale;
-                lena.properties.uv_offset = offset;
+            let (scale, offset) = self.calculate_scale_offset(self.current_frame);
+            if let Some(entity) = &mut self.lena {
+                entity.properties.uv_scale = scale;
+                entity.properties.uv_offset = offset;
             }
         }
     }
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State) {
-        state.scene.render(commands);
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+        if let Some(entity) = &self.lena {
+            commands.push(DrawCommand::DrawEntity(*entity))
+        }
     }
 
     fn resize(&mut self, state: &mut State) {

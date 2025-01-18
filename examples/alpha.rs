@@ -81,6 +81,7 @@ const CUBE_INDICES: &[u16] = &[
 pub struct GameState {
     orbit_camera: Option<OrbitCamera>,
     cubes: Vec<(HierarchyId, Transform)>,
+    scene: Scene,
     time: f32,
 }
 
@@ -126,7 +127,7 @@ impl Game for GameState {
                 .with_matrix(transform.into())
                 .build();
             self.cubes
-                .push((state.scene.add_entity(mesh_id, material_id, transform, props).1, transform));
+                .push((self.scene.add_entity(mesh_id, material_id, transform, props).1, transform));
         }
     }
 
@@ -140,12 +141,13 @@ impl Game for GameState {
             transform.position = Vec3::new((i as f32 + self.time).sin(), 0.0, -2.0 * i as f32);
             transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.5 * elapsed, 0.4 * elapsed, 0.2 * elapsed)
                     * transform.rotation;
-            state.scene.hierarchy.set_transform(*id, *transform);
+            self.scene.hierarchy.set_transform(*id, *transform);
         }
+        self.scene.update(&state.camera, &state.resources);
     }
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State) {
-        state.scene.render(commands);
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
+        self.scene.render(commands);
     }
 
     fn resize(&mut self, state: &mut State) {
@@ -157,11 +159,13 @@ pub async fn run() {
     let game_state = GameState {
         orbit_camera: Some(OrbitCamera::new(1.5)),
         cubes: Vec::new(),
+        scene: Scene::new(),
         time: 0.0,
     };
     Helia::new().run(Box::new(game_state)).await;
 }
 
+use scene::Scene;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 

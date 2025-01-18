@@ -2,12 +2,13 @@ mod battle_state;
 mod character;
 mod grid;
 mod player;
+mod sprite;
 mod utils;
 
 use battle_state::*;
 use glam::*;
 use helia::{
-    atlas::Atlas, camera::*, entity::InstanceProperties, material::MaterialId, mesh::MeshId,
+    atlas::Atlas, camera::*, material::MaterialId, mesh::MeshId,
     primitives::*, ui::font::FontAtlas, ui::*, *,
 };
 use std::collections::HashMap;
@@ -195,40 +196,39 @@ impl Game for GameState {
         let mut battle_state = BattleState::new(&self.resources, state);
 
         // 9 slice test
-        let mut slice_mesh = SliceSpriteMesh::new(
-            Vec2::new(16.0, 16.0),
-            SliceConfig {
-                width: 8.0,
-                height: 8.0,
-                top: 2.0,
-                right: 2.0,
-                bottom: 2.0,
-                left: 2.0,
-            },
-            state,
-        );
-        let texture = helia::texture::Texture::from_bytes(
-            &state.device,
-            &state.queue,
-            include_bytes!("../assets/slice.png"),
-        )
-        .unwrap();
-        let texture_id = state.resources.textures.insert(texture);
-        let material = helia::material::Material::new(state.shaders.sprite, texture_id, &state);
-        let material_id = state.resources.materials.insert(material);
-        state.scene.add_entity(
-            slice_mesh.mesh,
-            material_id,
-            transform::Transform::from_position_scale(
-                Vec3::new(0.0, 64.0, 0.0),
-                4.0 * Vec3::ONE,
-            ),
-            InstanceProperties::default(),
-        );
+        // Maybe move this to a UI examples eh?
+        // let mut slice_mesh = SliceSpriteMesh::new(
+        //     Vec2::new(16.0, 16.0),
+        //     SliceConfig {
+        //         width: 8.0,
+        //         height: 8.0,
+        //         top: 2.0,
+        //         right: 2.0,
+        //         bottom: 2.0,
+        //         left: 2.0,
+        //     },
+        //     state,
+        // );
+        // let texture = helia::texture::Texture::from_bytes(
+        //     &state.device,
+        //     &state.queue,
+        //     include_bytes!("../assets/slice.png"),
+        // )
+        // .unwrap();
+        // let texture_id = state.resources.textures.insert(texture);
+        // let material = helia::material::Material::new(state.shaders.sprite, texture_id, &state);
+        // let material_id = state.resources.materials.insert(material);
+        // let sliced_sprite = Sprite { 
+        //     mesh_id: slice_mesh.mesh,
+        //     material_id,
+        //     position: Vec3::new(0.0, 64.0, 0.0),
+        //     scale: 4.0 * Vec3::ONE,
+        //     uv_offset: Vec2::ZERO,
+        //     uv_scale: Vec2::ONE,
+        // };
+        // slice_mesh.resize(Vec2::new(32.0, 16.0), state);
 
-        slice_mesh.resize(Vec2::new(32.0, 16.0), state);
-
-        battle_state.enter(state);
+        battle_state.enter();
         self.stage = Stage::Battle {
             state: battle_state,
         };
@@ -243,11 +243,7 @@ impl Game for GameState {
         }
     }
 
-    fn render(&mut self, commands: &mut Vec<DrawCommand>, state: &mut State) {
-        // TODO: we don't really need a scene for this
-        // it's all UI based, we could/should order it ourselves
-        // Ideally we'd also be able to disable the depth testing
-        state.scene.render(commands);
+    fn render(&mut self, commands: &mut Vec<DrawCommand>) {
         if let Stage::Battle { state } = &self.stage {
             state.render(commands);
         }
