@@ -14,7 +14,6 @@ use crate::Resources;
 use slotmap::{DenseSlotMap, SlotMap};
 
 pub struct Scene {
-    pub camera: Camera,
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub hierarchy: TransformHierarchy,
     render_objects: Vec<EntityId>,
@@ -25,7 +24,6 @@ pub struct Scene {
 impl Scene {
     pub fn new() -> Self {
         Self {
-            camera: Camera::default(),
             prefabs: DenseSlotMap::with_key(),
             render_objects: Vec::new(),
             hierarchy: TransformHierarchy::new(),
@@ -117,6 +115,7 @@ impl Scene {
     /// Builds ordered scene graph, including ordering based on camera depth for alpha blended objects
     pub fn update(
         &mut self,
+        camera: &Camera,
         resources: &Resources
     ) {
         // Update Entity World Matrix From Hierarchy
@@ -176,7 +175,7 @@ impl Scene {
 
         // All the opaque objects are in the 'graph', now add depth ordered alpha objects
         let camera_transform =
-            glam::Mat4::look_at_rh(self.camera.eye, self.camera.target, glam::Vec3::Y);
+            glam::Mat4::look_at_rh(camera.eye, camera.target, glam::Vec3::Y);
         alpha_entities.sort_by(|a, b| {
             // This quite possibly works because transform_point results in -translation
             // and then we're sorting from front to back, rather than back to front
