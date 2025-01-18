@@ -61,12 +61,12 @@ impl BattleState {
 
         let text_mesh = TextMesh::builder(
             text.clone(),
-            Vec3::new(0.0, state.scene.camera.size.top, 0.0),
+            Vec3::new(0.0, state.camera.size.top, 0.0),
             mini_atlas,
         )
         .with_alignment(TextAlignment::Center)
         .with_vertical_alignment(VerticalAlignment::Top)
-        .build(state);
+        .build();
 
         for i in 0..3 {
             let dummy_character = Character::create_on_grid(
@@ -112,12 +112,12 @@ impl BattleState {
                     // this is essentially selecting the "skip turn" ability
                     self.grid
                         .set_highlight(player.character.position, Color::RED, state);
-                    self.text_mesh.translate(Vec3::new(-16.0, 16.0, 0.0), state);
+                    self.text_mesh.set_text("Testing Testing".to_string());
+                    self.text_mesh.translate(Vec3::new(-16.0, 16.0, 0.0));
                     for i in 0..self.text_mesh.text.len() {
                         self.text_mesh.offset_char(
                             i,
                             Vec3::new(0.0, (i as f32 / 2.0).sin() * 4.0, 0.0),
-                            state,
                         );
                     }
                 }
@@ -158,12 +158,17 @@ impl BattleState {
                 player.character.start_turn(&self.grid);
                 self.grid.set_movement_highlights(&player.character, state);
                 self.stage = BattleStage::PlayerMove;
-                self.text_mesh.translate(Vec3::new(0.0, 16.0, 0.0), state);
+                self.text_mesh.set_text("Helia Tactics!".to_string());
+                self.text_mesh.translate(Vec3::new(0.0, 16.0, 0.0));
                 for i in 0..self.text_mesh.text.len() {
                     self.text_mesh
-                        .offset_char(i, Vec3::new(0.0, 0.0, 0.0), state);
+                        .offset_char(i, Vec3::new(0.0, 0.0, 0.0));
                 }
             }
         }
+    }
+    
+    pub fn render(&self, commands: &mut Vec<DrawCommand>) {
+        self.text_mesh.render(commands);
     }
 }

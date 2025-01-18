@@ -1,6 +1,5 @@
-use core::entity::*;
-use core::transform_hierarchy::HierarchyId;
-use core::State;
+use core::transform::Transform;
+use core::{entity::*, DrawCommand};
 use glam::*;
 
 use crate::font::*;
@@ -42,7 +41,7 @@ impl TextMeshBuilder {
         }
     }
 
-    pub fn build(&self, state: &mut State) -> TextMesh {
+    pub fn build(&self) -> TextMesh {
         TextMesh::new(
             self.text.clone(),
             self.position,
@@ -50,7 +49,6 @@ impl TextMeshBuilder {
             self.scale,
             self.alignment,
             self.vertical_alignment,
-            state,
         )
     }
 
@@ -71,11 +69,17 @@ impl TextMeshBuilder {
     }
 }
 
+pub struct TextMeshElement {
+    transform: Transform,
+    entity: Entity,
+    offset: Vec3
+}
+
 pub struct TextMesh {
     pub text: String,
     position: Vec3,
     font: FontAtlas,
-    entities: Vec<(EntityId, HierarchyId, Vec3)>,
+    elements: Vec<TextMeshElement>,
     scale: f32,
     alignment: TextAlignment,
     vertical_alignment: VerticalAlignment,
@@ -92,19 +96,25 @@ impl TextMesh {
         scale: f32,
         alignment: TextAlignment,
         vertical_alignment: VerticalAlignment,
-        state: &mut State,
     ) -> Self {
         let mut text_mesh = Self {
             text: String::from(""),
-            entities: Vec::new(),
+            elements: Vec::new(),
             font,
             position,
             scale,
             alignment,
             vertical_alignment,
         };
-        text_mesh.set_text(text, state);
+        text_mesh.set_text(text);
         text_mesh
+    }
+
+    // Could take a world transform if we wanted
+    pub fn render(&self, draw_commands: &mut Vec<DrawCommand>) {
+        for element in self.elements.iter() {
+            draw_commands.push(DrawCommand::DrawEntity(element.entity));
+        }
     }
 
     pub fn builder(text: String, position: Vec3, font: FontAtlas) -> TextMeshBuilder {
@@ -128,13 +138,13 @@ impl TextMesh {
         Vec3::new(x_offset, y_offset, 0.0)
     }
 
-    fn get_char_width(&self, char: char) -> f32 {
-        if let Some(custom_widths) = &self.font.custom_char_widths {
+    fn get_char_width(char: char, font: &FontAtlas, scale: f32) -> f32 {
+        if let Some(custom_widths) = &font.custom_char_widths {
             if let Some(width) = custom_widths.get(&char) {
-                return *width as f32 * self.scale;
+                return *width as f32 * scale;
             }
         }
-        self.font.atlas.tile_width as f32 * self.scale
+        font.atlas.tile_width as f32 * scale
     }
 
     #[allow(dead_code)]
@@ -157,14 +167,9 @@ impl TextMesh {
         }
     }
 
-    pub fn set_text(&mut self, text: String, state: &mut State) {
-        if !self.entities.is_empty() && self.entities.len() > text.len() {
-            let from = text.len();
-            let to = self.entities.len();
-            for i in from..to {
-                state.scene.remove_entity(self.entities[i].0);
-            }
-            self.entities.truncate(text.len());
+    pub fn set_text(&mut self, text: String) {
+        if !self.elements.is_empty() && self.elements.len() > text.len() {
+            self.elements.truncate(text.len());
         }
 
         self.text = text;
@@ -174,65 +179,55 @@ impl TextMesh {
         // this is probably terrible practice for anything other than ascii
         for (i, char) in chars.enumerate() {
             if let Some(index) = self.font.char_map.find(char) {
-                if i < self.entities.len() {
-                    let mut transform = state.scene.hierarchy.get_transform(self.entities[i].1).unwrap();
-                    transform.position = position;
-                    state.scene.hierarchy.set_transform(self.entities[i].1, transform);
-                    let entity = state.scene.get_entity_mut(self.entities[i].0);
-                    entity.properties.uv_offset = self.font.atlas.uv_offset_scale(index).0;
-                    self.entities[i].2 = Vec3::ZERO; // reset offset
+                if i < self.elements.len() {
+                    let element = &mut self.elements.get_mut(i).unwrap();
+                    element.transform.position = position;
+                    element.entity.properties.uv_offset = self.font.atlas.uv_offset_scale(index).0;
+                    element.entity.properties.world_matrix = element.transform.to_local_matrix();
+                    element.offset = Vec3::ZERO; // reset offset
                 } else {
                     let (transform, props) = self.font
                         .atlas
                         .instance_properties(index, position, self.scale);
-                    let (id, hierarchy_id) = state.scene.add_entity(
+                    let entity = Entity::new(
                         self.font.atlas.mesh_id,
                         self.font.atlas.material_id,
-                        transform,
                         props
                     );
-                    self.entities.push((id, hierarchy_id, Vec3::ZERO));
+                    self.elements.push(TextMeshElement { transform, entity, offset: Vec3::ZERO });
                 }
-                position += self.get_char_width(char) * Vec3::X
+                position += Self::get_char_width(char, &self.font, self.scale) * Vec3::X
             }
         }
     }
 
-    #[allow(dead_code)]
-    pub fn clear_entities(&mut self, state: &mut State) {
-        for (id, _, _) in &self.entities {
-            state.scene.remove_entity(*id);
-        }
-    }
 
     #[allow(dead_code)]
-    pub fn translate(&mut self, position: Vec3, state: &mut State) {
+    pub fn translate(&mut self, position: Vec3) {
         self.position = position;
-        if self.text.len() != self.entities.len() {
-            self.set_text(self.text.clone(), state);
+        if self.text.len() != self.elements.len() {
+            self.set_text(self.text.clone());
             log::warn!("Tried to translate text mesh, but text did not match entity length, use set_text fn to alter text value");
         } else {
             let mut position = self.position + self.calculate_alignment_offset();
-            for (i, (_, hierarchy_id, offset)) in self.entities.iter().enumerate() {
+            for (i, element) in self.elements.iter_mut().enumerate() {
                 if let Some(char) = self.text.chars().nth(i) {
-                    let mut transform = state.scene.hierarchy.get_transform(self.entities[i].1).unwrap();
-                    transform.position = position + offset;
-                    state.scene.hierarchy.set_transform(*hierarchy_id, transform);
-                    position += self.get_char_width(char) * Vec3::X;
+                    element.transform.position = position + element.offset;
+                    element.entity.properties.world_matrix = element.transform.to_local_matrix();
+                    position += Self::get_char_width(char, &self.font, self.scale) * Vec3::X;
                 }
             }
         }
     }
 
     #[allow(dead_code)]
-    pub fn offset_char(&mut self, index: usize, offset: Vec3, state: &mut State) {
-        if index < self.entities.len() {
-            let (id, hierarchy_id, prev_offset) = self.entities[index];
-            let delta = offset - prev_offset;
-            let mut transform = state.scene.hierarchy.get_transform(hierarchy_id).unwrap();
-            transform.position += delta;
-            state.scene.hierarchy.set_transform(hierarchy_id, transform);
-            self.entities[index] = (id, hierarchy_id, offset);
+    pub fn offset_char(&mut self, index: usize, target_offset: Vec3) {
+        if index < self.elements.len() {
+            let entry = &mut self.elements[index];
+            let delta = target_offset - entry.offset;
+            entry.transform.position += delta;
+            entry.entity.properties.world_matrix = entry.transform.to_local_matrix();
+            entry.offset = target_offset;
         }
     }
 }
