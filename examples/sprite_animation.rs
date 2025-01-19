@@ -2,6 +2,8 @@ use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
     entity::*,
+    material::MaterialId,
+    mesh::MeshId,
     *,
 };
 
@@ -42,11 +44,17 @@ mod aseprite {
 
 use self::aseprite::*;
 
+pub struct Sprite {
+    mesh: MeshId,
+    material: MaterialId,
+    instance: InstanceProperties,
+}
+
 pub struct GameState {
     sprite_data: AsepriteAnimation,
     time_in_frame: f32,
     current_frame: usize,
-    lena: Option<Entity>,
+    lena: Option<Sprite>,
 }
 
 impl Game for GameState {
@@ -87,13 +95,13 @@ impl Game for GameState {
 
         let (scale, offset) = self.calculate_scale_offset(self.current_frame);
         self.lena = Some(
-            Entity::new(
-                mesh_id,
-                lena_material_id,
-                InstanceProperties::builder()
-                    .with_uv_offset_scale(offset, scale)
-                    .build(),
-            )
+            Sprite {
+                mesh: mesh_id,
+                material: lena_material_id,
+                instance: InstanceProperties::builder()
+                .with_uv_offset_scale(offset, scale)
+                .build()
+            }
         );
     }
 
@@ -104,16 +112,16 @@ impl Game for GameState {
             self.time_in_frame -= frame_duration;
             self.current_frame = (self.current_frame + 1) % self.sprite_data.frames.len();
             let (scale, offset) = self.calculate_scale_offset(self.current_frame);
-            if let Some(entity) = &mut self.lena {
-                entity.properties.uv_scale = scale;
-                entity.properties.uv_offset = offset;
+            if let Some(sprite) = &mut self.lena {
+                sprite.instance.uv_scale = scale;
+                sprite.instance.uv_offset = offset;
             }
         }
     }
 
     fn render(&mut self, commands: &mut Vec<DrawCommand>) {
-        if let Some(entity) = &self.lena {
-            commands.push(DrawCommand::DrawEntity(*entity))
+        if let Some(lena) = &self.lena {
+            commands.push(DrawCommand::Draw(lena.mesh, lena.material, lena.instance));
         }
     }
 

@@ -92,9 +92,10 @@ pub struct Camera {
     pub projection: Projection,
     pub pixel_ratio: f32,
 }
-// todo: move from eye / target to position / rotation
 
 impl Camera {
+    // todo: provide functions for orthographic and perspective camera create methods
+
     pub fn build_view_projection_matrix(&self) -> Mat4 {
         let scale = Mat4::from_scale(self.pixel_ratio * Vec3::ONE);
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
@@ -110,7 +111,6 @@ impl Camera {
                 self.near,
                 self.far,
             ),
-            // todo: provide functions for orthographic and perspective camera create methods
         };
         OPENGL_TO_WGPU_MATRIX * proj * view * scale
     }

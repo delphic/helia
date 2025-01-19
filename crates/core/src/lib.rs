@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use entity::{Entity, InstanceProperties};
+use entity::{EntityDrawInstruction, InstanceProperties};
 use glam::*;
 use slotmap::SlotMap;
 use winit::{
@@ -215,12 +215,12 @@ impl State {
                 DrawCommand::Draw(
                     mesh,
                     material,
-                    transform) => 
-                    Entity::new(
+                    properties) => 
+                    EntityDrawInstruction::new(
                         *mesh,
                         *material,
-                        InstanceProperties::from_transform(*transform)),
-                DrawCommand::DrawEntity(entity) => *entity,
+                        *properties,
+                    ),
             };
             if let Some(shader) = self.resources.materials.get(entity.material).and_then(|material| Some(material.shader)) {
                 if let Some(count) = entity_count_by_shader.get(&shader) {
@@ -503,8 +503,7 @@ impl ApplicationHandler<UserEvent> for App {
 }
 
 pub enum DrawCommand {
-    Draw(MeshId, MaterialId, transform::Transform),
-    DrawEntity(Entity),
+    Draw(MeshId, MaterialId, InstanceProperties),
 }
 // TODO: ^^ would be good to support multiple cameras - but if we do that we want to only pass a cameraId rather than copying around all the data
 

@@ -15,11 +15,28 @@ use slotmap::DenseSlotMap;
 
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
 
+pub struct SceneEntity {
+    pub visible: bool,
+    pub mesh: MeshId,
+    pub material: MaterialId,
+    pub properties: InstanceProperties,
+}
+
+impl SceneEntity {
+    pub fn new(mesh: MeshId, material: MaterialId, properties: InstanceProperties) -> Self {
+        Self {
+            mesh,
+            material,
+            visible: true,
+            properties,
+        }
+    }
+}
 
 pub struct Scene {
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub hierarchy: TransformHierarchy,
-    entities: SecondaryMap<TransformId, Entity>,
+    entities: SecondaryMap<TransformId, SceneEntity>,
     render_objects: Vec<TransformId>,
     scene_graph: Vec<TransformId>,
 }
@@ -58,12 +75,12 @@ impl Scene {
         let id = self
             .hierarchy
             .insert(transform, None);
-        self.entities.insert(id, Entity::new(prefab.mesh, prefab.material, properties));
+        self.entities.insert(id, SceneEntity::new(prefab.mesh, prefab.material, properties));
         prefab.instances.push(id);
         id
     }
 
-    pub fn add_entity(
+    pub fn add(
         &mut self,
         mesh: MeshId,
         material: MaterialId,
@@ -73,12 +90,12 @@ impl Scene {
         let id = self
             .hierarchy
             .insert(transform, None);
-        self.entities.insert(id, Entity::new(mesh, material, properties));
+        self.entities.insert(id, SceneEntity::new(mesh, material, properties));
         self.render_objects.push(id);
         id
     }
 
-    pub fn remove_entity(&mut self, id: TransformId) {
+    pub fn remove(&mut self, id: TransformId) {
         if let Some(index) = self.render_objects.iter().position(|x| *x == id) {
             self.render_objects.remove(index);
             self.hierarchy.remove(id);
@@ -104,11 +121,12 @@ impl Scene {
         self.scene_graph.clear();
     }
 
-    pub fn get_entity(&self, id: TransformId) -> &Entity {
+    pub fn get(&self, id: TransformId) -> &SceneEntity {
         &self.entities[id]
     }
 
-    pub fn get_entity_mut(&mut self, id: TransformId) -> &mut Entity {
+    // This is misleading because you could update entity.properties.world_matrix but it would have no effect
+    pub fn get_mut(&mut self, id: TransformId) -> &mut SceneEntity {
         &mut self.entities[id]
     }
 
@@ -197,7 +215,7 @@ impl Scene {
 
     pub fn render(&mut self, draw_commands: &mut Vec<DrawCommand>) {
         for entity in self.scene_graph.iter().map(|id| &self.entities[*id]) {
-            draw_commands.push(DrawCommand::DrawEntity(*entity));
+            draw_commands.push(DrawCommand::Draw(entity.mesh, entity.material, entity.properties));
         }
     }
 }

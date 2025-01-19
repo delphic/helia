@@ -91,24 +91,20 @@ impl InstanceProperties {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Entity {
-    // render details
+pub struct EntityDrawInstruction {
     pub mesh: MeshId,
     pub material: MaterialId,
     pub uniform_offset: u64,
-    pub visible: bool,
-    // instance propertires
-    pub properties: InstanceProperties,
+    pub instance: InstanceProperties,
 }
 
-impl Entity {
-    pub fn new(mesh: MeshId, material: MaterialId, properties: InstanceProperties) -> Self {
+impl EntityDrawInstruction {
+    pub fn new(mesh: MeshId, material: MaterialId, instance: InstanceProperties) -> Self {
         Self {
             mesh,
             material,
-            visible: true,
             uniform_offset: 0,
-            properties,
+            instance,
         }
     }
 }

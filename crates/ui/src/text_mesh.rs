@@ -71,8 +71,8 @@ impl TextMeshBuilder {
 
 pub struct TextMeshElement {
     transform: Transform,
-    entity: Entity,
-    offset: Vec3
+    offset: Vec3,
+    instance: InstanceProperties,
 }
 
 pub struct TextMesh {
@@ -113,7 +113,11 @@ impl TextMesh {
     // Could take a world transform if we wanted
     pub fn render(&self, draw_commands: &mut Vec<DrawCommand>) {
         for element in self.elements.iter() {
-            draw_commands.push(DrawCommand::DrawEntity(element.entity));
+            draw_commands.push(DrawCommand::Draw(
+                self.font.atlas.mesh_id,
+                self.font.atlas.material_id,
+                element.instance
+            ));
         }
     }
 
@@ -182,19 +186,18 @@ impl TextMesh {
                 if i < self.elements.len() {
                     let element = &mut self.elements.get_mut(i).unwrap();
                     element.transform.position = position;
-                    element.entity.properties.uv_offset = self.font.atlas.uv_offset_scale(index).0;
-                    element.entity.properties.world_matrix = element.transform.to_local_matrix();
+                    element.instance.uv_offset = self.font.atlas.uv_offset_scale(index).0;
+                    element.instance.world_matrix = element.transform.to_local_matrix();
                     element.offset = Vec3::ZERO; // reset offset
                 } else {
-                    let (transform, props) = self.font
+                    let (transform, instance) = self.font
                         .atlas
                         .instance_properties(index, position, self.scale);
-                    let entity = Entity::new(
-                        self.font.atlas.mesh_id,
-                        self.font.atlas.material_id,
-                        props
-                    );
-                    self.elements.push(TextMeshElement { transform, entity, offset: Vec3::ZERO });
+                    self.elements.push(TextMeshElement {
+                        transform,
+                        instance, 
+                        offset: Vec3::ZERO
+                    });
                 }
                 position += Self::get_char_width(char, &self.font, self.scale) * Vec3::X
             }
@@ -213,7 +216,7 @@ impl TextMesh {
             for (i, element) in self.elements.iter_mut().enumerate() {
                 if let Some(char) = self.text.chars().nth(i) {
                     element.transform.position = position + element.offset;
-                    element.entity.properties.world_matrix = element.transform.to_local_matrix();
+                    element.instance.world_matrix = element.transform.to_local_matrix();
                     position += Self::get_char_width(char, &self.font, self.scale) * Vec3::X;
                 }
             }
@@ -226,7 +229,7 @@ impl TextMesh {
             let entry = &mut self.elements[index];
             let delta = target_offset - entry.offset;
             entry.transform.position += delta;
-            entry.entity.properties.world_matrix = entry.transform.to_local_matrix();
+            entry.instance.world_matrix = entry.transform.to_local_matrix();
             entry.offset = target_offset;
         }
     }

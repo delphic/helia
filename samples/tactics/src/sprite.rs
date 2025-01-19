@@ -1,5 +1,5 @@
 use glam::{Vec2, Vec3};
-use helia::{entity::{Entity, InstanceProperties}, material::MaterialId, mesh::MeshId, transform::Transform, Color, DrawCommand};
+use helia::{entity::InstanceProperties, material::MaterialId, mesh::MeshId, transform::Transform, Color, DrawCommand};
 
 pub struct Sprite {
 	pub mesh_id: MeshId,
@@ -15,7 +15,7 @@ pub struct Sprite {
 
 impl Sprite {
 	pub fn to_draw_command(&self) -> DrawCommand {
-		DrawCommand::DrawEntity(Entity::new(
+		DrawCommand::Draw(
 			self.mesh_id,
 			self.material_id,
 			InstanceProperties::builder()
@@ -24,7 +24,6 @@ impl Sprite {
 				.with_matrix(Transform::from_position_scale(self.position, self.scale).into())
 				.build()
 			)
-		)
 	}
 }
 

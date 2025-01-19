@@ -1,7 +1,7 @@
 use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
-    // entity::*,
+    entity::*,
     material::Material,
     mesh::Mesh,
     orbit_camera::*,
@@ -117,8 +117,6 @@ impl Game for GameState {
         let mesh = Mesh::from_arrays(CUBE_POSITIONS, CUBE_UVS, CUBE_INDICES, &device);
         let mesh_id = state.resources.meshes.insert(mesh);
 
-        // let props = InstanceProperties::default();
-        // self.cube = Some(state.scene.add_entity(mesh_id, material_id, props));
         self.cube = Some((mesh_id, material_id, Transform::default()));
     }
 
@@ -137,7 +135,7 @@ impl Game for GameState {
 
     fn render(&mut self, commands: &mut Vec<DrawCommand>) {
         if let Some((mesh_id, material_id, transform)) = self.cube {
-            commands.push(DrawCommand::Draw(mesh_id, material_id, transform));
+            commands.push(DrawCommand::Draw(mesh_id, material_id, InstanceProperties::from_transform(transform)));
         }
     }
 

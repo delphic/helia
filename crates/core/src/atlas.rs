@@ -38,10 +38,10 @@ impl Atlas {
             position,
             scale * self.tile_size().extend(1.0),
         );
-        let props = InstanceProperties::builder()
+        let instance = InstanceProperties::builder()
             .with_matrix(transform.into())
             .with_uv_offset_scale(uv_offset, uv_scale)
             .build();
-        (transform , props)
+        (transform , instance)
     }
 }

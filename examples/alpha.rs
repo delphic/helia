@@ -123,9 +123,9 @@ impl Game for GameState {
 
         for i in 0..3 {
             let transform = Transform::from_position(-2.0 * (i as f32) * Vec3::Z);
-            let props = InstanceProperties::from_transform(transform);
+            let instance = InstanceProperties::from_transform(transform);
             self.cubes
-                .push((self.scene.add_entity(mesh_id, material_id, transform, props), transform));
+                .push((self.scene.add(mesh_id, material_id, transform, instance), transform));
         }
     }
 
