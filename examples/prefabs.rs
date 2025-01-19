@@ -107,7 +107,7 @@ impl Game for GameState {
                     let transform = Transform::from_position_rotation(position, rotation);
                     (
                         transform, 
-                        InstanceProperties::from_transform(transform)
+                        RenderProperties::from_transform(transform)
                     )
                 })
             })
@@ -119,11 +119,11 @@ impl Game for GameState {
         let lena_prefab_id = self.scene.create_prefab(mesh_id, black_material_id);
         let lena_alt_prefab_id = self.scene.create_prefab(mesh_id, rink_material_id);
 
-        for (i, (transform, props)) in instances.iter().enumerate() {
+        for (i, (transform, instance)) in instances.iter().enumerate() {
             if i % 2 == 0 {
-                self.scene.add_instance(lena_prefab_id, *transform, *props);
+                self.scene.add_instance(lena_prefab_id, *transform, *instance);
             } else {
-                self.scene.add_instance(lena_alt_prefab_id, *transform, *props);
+                self.scene.add_instance(lena_alt_prefab_id, *transform, *instance);
             }
         }
     }

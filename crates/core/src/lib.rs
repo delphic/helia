@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use entity::{EntityDrawInstruction, InstanceProperties};
+use entity::{EntityDrawInstruction, RenderProperties};
 use glam::*;
 use slotmap::SlotMap;
 use winit::{
@@ -503,9 +503,8 @@ impl ApplicationHandler<UserEvent> for App {
 }
 
 pub enum DrawCommand {
-    Draw(MeshId, MaterialId, InstanceProperties),
+    Draw(MeshId, MaterialId, RenderProperties),
 }
-// TODO: ^^ would be good to support multiple cameras - but if we do that we want to only pass a cameraId rather than copying around all the data
 
 pub trait Game {
     fn init(&mut self, state: &mut State);

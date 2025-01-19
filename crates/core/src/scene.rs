@@ -19,11 +19,11 @@ pub struct SceneEntity {
     pub visible: bool,
     pub mesh: MeshId,
     pub material: MaterialId,
-    pub properties: InstanceProperties,
+    pub properties: RenderProperties,
 }
 
 impl SceneEntity {
-    pub fn new(mesh: MeshId, material: MaterialId, properties: InstanceProperties) -> Self {
+    pub fn new(mesh: MeshId, material: MaterialId, properties: RenderProperties) -> Self {
         Self {
             mesh,
             material,
@@ -69,7 +69,7 @@ impl Scene {
         &mut self,
         prefab_id: PrefabId,
         transform: Transform,
-        properties: InstanceProperties,
+        properties: RenderProperties,
     ) -> TransformId {
         let prefab = self.prefabs.get_mut(prefab_id).unwrap();
         let id = self
@@ -85,7 +85,7 @@ impl Scene {
         mesh: MeshId,
         material: MaterialId,
         transform: Transform,
-        properties: InstanceProperties,
+        properties: RenderProperties,
     ) -> TransformId {
         let id = self
             .hierarchy

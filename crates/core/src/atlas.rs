@@ -1,4 +1,4 @@
-use crate::{entity::InstanceProperties, material::MaterialId, mesh::MeshId, transform::Transform};
+use crate::{entity::RenderProperties, material::MaterialId, mesh::MeshId, transform::Transform};
 use glam::{Vec2, Vec3};
 
 #[derive(Clone, Copy, Debug)]
@@ -32,13 +32,13 @@ impl Atlas {
         index: usize,
         position: Vec3,
         scale: f32,
-    ) -> (Transform, InstanceProperties) {
+    ) -> (Transform, RenderProperties) {
         let (uv_offset, uv_scale) = self.uv_offset_scale(index);
         let transform = Transform::from_position_scale(
             position,
             scale * self.tile_size().extend(1.0),
         );
-        let instance = InstanceProperties::builder()
+        let instance = RenderProperties::builder()
             .with_matrix(transform.into())
             .with_uv_offset_scale(uv_offset, uv_scale)
             .build();

@@ -72,7 +72,7 @@ impl TextMeshBuilder {
 pub struct TextMeshElement {
     transform: Transform,
     offset: Vec3,
-    instance: InstanceProperties,
+    instance: RenderProperties,
 }
 
 pub struct TextMesh {

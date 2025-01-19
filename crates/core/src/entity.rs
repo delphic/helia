@@ -4,8 +4,10 @@ use glam::{Mat4, Vec2};
 
 use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms, transform::Transform};
 
-// This is really a render object at the moment
-// it is also mixing the requirements of the shader (transform / color)
+// This specifically and intentionally only refers to entity / instance data for rendering objects
+// Currently it is game codes responsibility to define and track any broader concept of entity
+
+// It is also mixing the requirements of the shader (transform / color)
 // with the requirements the geometry (mesh) and the specification of
 // the shader (via material, currently implicit)
 
@@ -14,18 +16,18 @@ use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms, transfor
 // the game to be able to extend the properties a shader can act upon
 // and if want to avoid properties that have no effect for certain entities
 
-pub struct InstancePropertiesBuilder {
-    properties: InstanceProperties,
+pub struct RenderPropertiesBuilder {
+    properties: RenderProperties,
 }
 
-impl InstancePropertiesBuilder {
+impl RenderPropertiesBuilder {
     pub fn new() -> Self {
         Self {
-            properties: InstanceProperties::default(),
+            properties: RenderProperties::default(),
         }
     }
 
-    pub fn build(&self) -> InstanceProperties {
+    pub fn build(&self) -> RenderProperties {
         self.properties
     }
 
@@ -57,14 +59,14 @@ impl InstancePropertiesBuilder {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct InstanceProperties {
+pub struct RenderProperties {
     pub world_matrix: Mat4,
     pub color: wgpu::Color,
     pub uv_offset: Vec2,
     pub uv_scale: Vec2,
 }
 
-impl Default for InstanceProperties {
+impl Default for RenderProperties {
     fn default() -> Self {
         Self {
             world_matrix: Mat4::IDENTITY,
@@ -75,9 +77,9 @@ impl Default for InstanceProperties {
     }
 }
 
-impl InstanceProperties {
-    pub fn builder() -> InstancePropertiesBuilder {
-        InstancePropertiesBuilder::new()
+impl RenderProperties {
+    pub fn builder() -> RenderPropertiesBuilder {
+        RenderPropertiesBuilder::new()
     }
 
     pub fn from_transform(transform: Transform) -> Self {
@@ -95,11 +97,11 @@ pub struct EntityDrawInstruction {
     pub mesh: MeshId,
     pub material: MaterialId,
     pub uniform_offset: u64,
-    pub instance: InstanceProperties,
+    pub instance: RenderProperties,
 }
 
 impl EntityDrawInstruction {
-    pub fn new(mesh: MeshId, material: MaterialId, instance: InstanceProperties) -> Self {
+    pub fn new(mesh: MeshId, material: MaterialId, instance: RenderProperties) -> Self {
         Self {
             mesh,
             material,

@@ -3,7 +3,7 @@ use wgpu::PipelineCompilationOptions;
 
 use crate::{
     camera::CameraBindGroup,
-    entity::{EntityBindGroup, EntityDrawInstruction, InstanceProperties},
+    entity::{EntityBindGroup, EntityDrawInstruction, RenderProperties},
     texture,
 };
 
@@ -47,7 +47,7 @@ pub struct EntityUniforms {
 // for sprite shader
 
 impl EntityUniforms {
-    pub fn write_bytes(instance: &InstanceProperties, bytes: &mut Vec<u8>) {
+    pub fn write_bytes(instance: &RenderProperties, bytes: &mut Vec<u8>) {
         let data = EntityUniforms {
             model: instance.world_matrix.to_cols_array_2d(),
             color: [
@@ -128,7 +128,7 @@ pub struct Shader {
     pub entity_bind_group: EntityBindGroup,
     // ^^ these last two should be shared between shaders where possible
     pub requires_ordering: bool,
-    bytes_delegate: fn(entity: &InstanceProperties, bytes: &mut Vec<u8>),
+    bytes_delegate: fn(instance: &RenderProperties, bytes: &mut Vec<u8>),
     bytes_buffer: Vec<u8>,
     next_offset: u64,
 }
@@ -141,7 +141,7 @@ impl Shader {
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         alpha_blending: bool, // todo: enum, cause also pre-multiplied
         entity_uniforms_size: usize,
-        to_bytes_delegate: fn(entity: &InstanceProperties, bytes: &mut Vec<u8>),
+        to_bytes_delegate: fn(instance: &RenderProperties, bytes: &mut Vec<u8>),
     ) -> Self {
         let camera_bind_group = CameraBindGroup::new(device);
         // Much of what's in camera.rs w.r.t. CameraBindGroup is dependent on shader implementation

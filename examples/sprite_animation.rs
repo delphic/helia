@@ -47,7 +47,7 @@ use self::aseprite::*;
 pub struct Sprite {
     mesh: MeshId,
     material: MaterialId,
-    instance: InstanceProperties,
+    instance: RenderProperties,
 }
 
 pub struct GameState {
@@ -98,7 +98,7 @@ impl Game for GameState {
             Sprite {
                 mesh: mesh_id,
                 material: lena_material_id,
-                instance: InstanceProperties::builder()
+                instance: RenderProperties::builder()
                 .with_uv_offset_scale(offset, scale)
                 .build()
             }
