@@ -387,7 +387,7 @@ dependencies = [
 
 [[package]]
 name = "core"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -756,7 +756,7 @@ dependencies = [
 
 [[package]]
 name = "helia"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "core",
  "glam",
