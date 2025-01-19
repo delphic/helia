@@ -2,7 +2,7 @@ use glam::*;
 use helia::{
     camera::{Camera, OrthographicSize},
     entity::InstanceProperties,
-    transform_hierarchy::HierarchyId,
+    transform_hierarchy::TransformId,
     material::Material,
     mesh::Mesh,
     orbit_camera::*,
@@ -80,7 +80,7 @@ const CUBE_INDICES: &[u16] = &[
 
 pub struct GameState {
     orbit_camera: Option<OrbitCamera>,
-    cubes: Vec<(HierarchyId, Transform)>,
+    cubes: Vec<(TransformId, Transform)>,
     scene: Scene,
     time: f32,
 }
@@ -127,7 +127,7 @@ impl Game for GameState {
                 .with_matrix(transform.into())
                 .build();
             self.cubes
-                .push((self.scene.add_entity(mesh_id, material_id, transform, props).1, transform));
+                .push((self.scene.add_entity(mesh_id, material_id, transform, props), transform));
         }
     }
 

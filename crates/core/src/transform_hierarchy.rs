@@ -5,19 +5,19 @@ use slotmap::{self, SecondaryMap, SlotMap};
 
 use crate::transform::Transform;
 
-slotmap::new_key_type! { pub struct HierarchyId; }
+slotmap::new_key_type! { pub struct TransformId; }
 
 pub struct HierarchyNode {
-    pub parent: Option<HierarchyId>,
-    pub children: Vec<HierarchyId>,
+    pub parent: Option<TransformId>,
+    pub children: Vec<TransformId>,
 }
 
 /// Stores a hierarchy of transforms and maintains an accurate set of world matrices
 /// NOTE: Does not prevent circular references on insertion
 pub struct TransformHierarchy {
-    hierarchy: SlotMap<HierarchyId, HierarchyNode>,
-    transforms: SecondaryMap<HierarchyId, Transform>,
-    world_matrices: SecondaryMap<HierarchyId, Mat4>,
+    hierarchy: SlotMap<TransformId, HierarchyNode>,
+    transforms: SecondaryMap<TransformId, Transform>,
+    world_matrices: SecondaryMap<TransformId, Mat4>,
 }
 
 impl TransformHierarchy {
@@ -35,7 +35,7 @@ impl TransformHierarchy {
         self.world_matrices.clear();
     }
 
-    pub fn insert(&mut self, transform: Transform, parent: Option<HierarchyId>) -> HierarchyId {
+    pub fn insert(&mut self, transform: Transform, parent: Option<TransformId>) -> TransformId {
         let node = HierarchyNode { parent: parent, children: Vec::new() };
         let hierarchy_id = self.hierarchy.insert(node);
         self.transforms.insert(hierarchy_id, transform);
@@ -44,17 +44,17 @@ impl TransformHierarchy {
     }
 
     /// Remove a transform and all it's descendants from the hierarchy
-    pub fn remove(&mut self, hierarchy_id: HierarchyId) {
-        self.deattach_parent(hierarchy_id);
-        if let Some(node) = self.hierarchy.get(hierarchy_id) {
+    pub fn remove(&mut self, id: TransformId) {
+        self.deattach_parent(id);
+        if let Some(node) = self.hierarchy.get(id) {
             if node.children.is_empty() {
-                self.hierarchy.remove(hierarchy_id);
-                self.transforms.remove(hierarchy_id);
-                self.world_matrices.remove(hierarchy_id);
+                self.hierarchy.remove(id);
+                self.transforms.remove(id);
+                self.world_matrices.remove(id);
             } else {
                 let mut to_remove = HashSet::new();
                 let mut pending = Vec::new();
-                to_remove.insert(hierarchy_id);
+                to_remove.insert(id);
                 pending.push(node);
                 while let Some(node) = pending.pop() {
                     for child in node.children.iter() {
@@ -74,31 +74,31 @@ impl TransformHierarchy {
         }
     }
 
-    pub fn parent(&mut self, hierarchy_id: HierarchyId, parent: Option<HierarchyId>) {
-        if self.hierarchy.get(hierarchy_id).and_then(|node| node.parent) != parent {
-            self.deattach_parent(hierarchy_id);
-            if let Some(node) = self.hierarchy.get_mut(hierarchy_id) {
+    pub fn parent(&mut self, id: TransformId, parent: Option<TransformId>) {
+        if self.hierarchy.get(id).and_then(|node| node.parent) != parent {
+            self.deattach_parent(id);
+            if let Some(node) = self.hierarchy.get_mut(id) {
                 node.parent = parent;
             }
-            self.set_transform(hierarchy_id, self.transforms[hierarchy_id]);
+            self.set_transform(id, self.transforms[id]);
         }
     }
 
-    pub fn get_transform(&self, hierarchy_id: HierarchyId) -> Option<Transform> {
-        self.transforms.get(hierarchy_id).copied()
+    pub fn get_transform(&self, id: TransformId) -> Option<Transform> {
+        self.transforms.get(id).copied()
     }
 
     /// Set transform and update relevant hierarchy world matrices
-    pub fn set_transform(&mut self, hierarchy_id: HierarchyId, transform: Transform) {
-        self.transforms[hierarchy_id] = transform;
-        if let Some(node) = self.hierarchy.get(hierarchy_id) {
+    pub fn set_transform(&mut self, id: TransformId, transform: Transform) {
+        self.transforms[id] = transform;
+        if let Some(node) = self.hierarchy.get(id) {
             let world_matrix = self.get_parent_matrix(node.parent) * transform.to_local_matrix();
-            self.world_matrices[hierarchy_id] = world_matrix;
+            self.world_matrices[id] = world_matrix;
             if !node.children.is_empty() {
                 let mut touched = HashSet::new();
-                touched.insert(hierarchy_id);
+                touched.insert(id);
                 Self::update_decendant_matrices(
-                    hierarchy_id,
+                    id,
                     world_matrix,
                     &self.hierarchy,
                     &self.transforms,
@@ -107,29 +107,29 @@ impl TransformHierarchy {
             }
 
         } else {
-            self.world_matrices[hierarchy_id] = transform.into();
+            self.world_matrices[id] = transform.into();
         }
     }
 
-    pub fn get_world_matrix(&self, hierarchy_id: HierarchyId) -> Option<Mat4> {
-        self.world_matrices.get(hierarchy_id).copied()
+    pub fn get_world_matrix(&self, id: TransformId) -> Option<Mat4> {
+        self.world_matrices.get(id).copied()
     }
 
-    pub fn get_world_scale_rotation_position(&self, hierarchy_id: HierarchyId) -> Option<(Vec3, Quat, Vec3)> {
-        self.get_world_matrix(hierarchy_id).and_then(|matrix| Some(matrix.to_scale_rotation_translation()))
+    pub fn get_world_scale_rotation_position(&self, id: TransformId) -> Option<(Vec3, Quat, Vec3)> {
+        self.get_world_matrix(id).and_then(|matrix| Some(matrix.to_scale_rotation_translation()))
     }
 
-    fn deattach_parent(&mut self, hierarchy_id: HierarchyId) {
-        if let Some(node) = self.hierarchy.get(hierarchy_id)
+    fn deattach_parent(&mut self, id: TransformId) {
+        if let Some(parent_node) = self.hierarchy.get(id)
             .and_then(|node| node.parent)
             .and_then(|parent| self.hierarchy.get_mut(parent)) {
-            if let Some(index) = node.children.iter().position(|id| *id == hierarchy_id) {
-                node.children.remove(index);
+            if let Some(index) = parent_node.children.iter().position(|child_id| *child_id == id) {
+                parent_node.children.remove(index);
             }
         }
     }
 
-    fn get_parent_matrix(&self, parent: Option<HierarchyId>) -> Mat4 {
+    fn get_parent_matrix(&self, parent: Option<TransformId>) -> Mat4 {
         if let Some(id) = parent {
             self.world_matrices.get(id).copied().unwrap_or(Mat4::IDENTITY)
         } else {
@@ -138,14 +138,14 @@ impl TransformHierarchy {
     }
 
     fn update_decendant_matrices(
-        hierarchy_id: HierarchyId,
+        id: TransformId,
         parent_matrix: Mat4,
-        hierarchy: &SlotMap<HierarchyId, HierarchyNode>,
-        transforms: &SecondaryMap<HierarchyId, Transform>,
-        matrices: &mut SecondaryMap<HierarchyId, Mat4>,
-        touched: &mut HashSet<HierarchyId>,
+        hierarchy: &SlotMap<TransformId, HierarchyNode>,
+        transforms: &SecondaryMap<TransformId, Transform>,
+        matrices: &mut SecondaryMap<TransformId, Mat4>,
+        touched: &mut HashSet<TransformId>,
     ) {
-        if let Some(node) = hierarchy.get(hierarchy_id) {
+        if let Some(node) = hierarchy.get(id) {
             for child in node.children.iter() {
                 if touched.insert(*child) {
                     // Could avoid the need to store transforms if we did inver_previous_parent_matrix * parent_matrix * local

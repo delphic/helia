@@ -13,7 +13,6 @@ use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
 // we'll need the ability to retrieve information modularly if we want
 // the game to be able to extend the properties a shader can act upon
 // and if want to avoid properties that have no effect for certain entities
-slotmap::new_key_type! { pub struct EntityId; }
 
 pub struct InstancePropertiesBuilder {
     properties: InstanceProperties,

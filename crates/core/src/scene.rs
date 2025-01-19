@@ -6,19 +6,22 @@ use crate::material::*;
 use crate::mesh::*;
 use crate::prefab::*;
 use crate::transform::Transform;
-use crate::transform_hierarchy::HierarchyId;
+use crate::transform_hierarchy::TransformId;
 use crate::transform_hierarchy::TransformHierarchy;
 use crate::DrawCommand;
 use crate::Resources;
+use slotmap::SecondaryMap;
+use slotmap::DenseSlotMap;
+
 // ^^ should probably consider a prelude, although I do prefer this to throwing everything in the prelude
-use slotmap::{DenseSlotMap, SlotMap};
+
 
 pub struct Scene {
     pub prefabs: DenseSlotMap<PrefabId, Prefab>,
     pub hierarchy: TransformHierarchy,
-    render_objects: Vec<EntityId>,
-    entities: SlotMap<EntityId, (HierarchyId, Entity)>,
-    scene_graph: Vec<EntityId>,
+    entities: SecondaryMap<TransformId, Entity>,
+    render_objects: Vec<TransformId>,
+    scene_graph: Vec<TransformId>,
 }
 
 impl Scene {
@@ -26,8 +29,8 @@ impl Scene {
         Self {
             prefabs: DenseSlotMap::with_key(),
             render_objects: Vec::new(),
+            entities: SecondaryMap::new(),
             hierarchy: TransformHierarchy::new(),
-            entities: SlotMap::with_key(),
             scene_graph: Vec::new(),
         }
     }
@@ -50,14 +53,14 @@ impl Scene {
         prefab_id: PrefabId,
         transform: Transform,
         properties: InstanceProperties,
-    ) -> (EntityId, HierarchyId) {
+    ) -> TransformId {
         let prefab = self.prefabs.get_mut(prefab_id).unwrap();
-        let hierarchy_id = self
+        let id = self
             .hierarchy
             .insert(transform, None);
-        let entity_id = self.entities.insert((hierarchy_id, Entity::new(prefab.mesh, prefab.material, properties)));
-        prefab.instances.push(entity_id);
-        (entity_id, hierarchy_id)
+        self.entities.insert(id, Entity::new(prefab.mesh, prefab.material, properties));
+        prefab.instances.push(id);
+        id
     }
 
     pub fn add_entity(
@@ -66,31 +69,29 @@ impl Scene {
         material: MaterialId,
         transform: Transform,
         properties: InstanceProperties,
-    ) -> (EntityId, HierarchyId) {
-        let hierarchy_id = self
+    ) -> TransformId {
+        let id = self
             .hierarchy
             .insert(transform, None);
-        let entity_id = self.entities.insert((hierarchy_id, Entity::new(mesh, material, properties)));
-        self.render_objects.push(entity_id);
-        (entity_id, hierarchy_id)
+        self.entities.insert(id, Entity::new(mesh, material, properties));
+        self.render_objects.push(id);
+        id
     }
 
-    pub fn remove_entity(&mut self, entity_id: EntityId) {
-        if let Some(index) = self.render_objects.iter().position(|x| *x == entity_id) {
+    pub fn remove_entity(&mut self, id: TransformId) {
+        if let Some(index) = self.render_objects.iter().position(|x| *x == id) {
             self.render_objects.remove(index);
-            if let Some((hierarchy_id, _)) = self.entities.remove(entity_id) {
-                self.hierarchy.remove(hierarchy_id);
-            }
+            self.hierarchy.remove(id);
+            self.entities.remove(id);
         }
     }
 
-    pub fn remove_instance(&mut self, prefab_id: PrefabId, entity_id: EntityId) {
+    pub fn remove_instance(&mut self, prefab_id: PrefabId, id: TransformId) {
         if let Some(prefab) = self.prefabs.get_mut(prefab_id) {
-            if let Some(index) = prefab.instances.iter().position(|x| *x == entity_id) {
+            if let Some(index) = prefab.instances.iter().position(|x| *x == id) {
                 prefab.instances.remove(index);
-                if let Some((hierarchy_id, _)) = self.entities.remove(entity_id) {
-                    self.hierarchy.remove(hierarchy_id);
-                }
+                self.entities.remove(id);
+                self.hierarchy.remove(id);
             }
         }
     }
@@ -103,12 +104,12 @@ impl Scene {
         self.scene_graph.clear();
     }
 
-    pub fn get_entity(&self, id: EntityId) -> &Entity {
-        &self.entities[id].1
+    pub fn get_entity(&self, id: TransformId) -> &Entity {
+        &self.entities[id]
     }
 
-    pub fn get_entity_mut(&mut self, id: EntityId) -> &mut Entity {
-        &mut self.entities[id].1
+    pub fn get_entity_mut(&mut self, id: TransformId) -> &mut Entity {
+        &mut self.entities[id]
     }
 
     /// Updates entity world matrices from hierarchy
@@ -119,19 +120,19 @@ impl Scene {
         resources: &Resources
     ) {
         // Update Entity World Matrix From Hierarchy
-        for (_, (hierarchy_id, entity)) in self.entities.iter_mut() {
-            entity.properties.world_matrix = self.hierarchy.get_world_matrix(*hierarchy_id).unwrap();
+        for (id, entity) in self.entities.iter_mut() {
+            entity.properties.world_matrix = self.hierarchy.get_world_matrix(id).unwrap();
         }
 
         // Build list of entities by shader so we can know how many entities will need to rendered per shader
         // also allows us to add to the scene graph grouped by shader, to minimise rebinds during render pass
         let mut entities_by_shader = HashMap::new();
 
-        for (id, (_, entity)) in self
+        for (id, entity) in self
             .render_objects
             .iter()
             .map(|id| (id, &self.entities[*id]))
-            .filter(|(_, (_, entity))| entity.visible)
+            .filter(|(_, entity)| entity.visible)
         {
             let material = &resources.materials[entity.material];
             if !entities_by_shader.contains_key(&material.shader) {
@@ -153,7 +154,7 @@ impl Scene {
             for id in prefab
                 .instances
                 .iter()
-                .filter(|id| self.entities[**id].1.visible)
+                .filter(|id| self.entities[**id].visible)
             {
                 entities.push(*id);
             }
@@ -179,11 +180,11 @@ impl Scene {
         alpha_entities.sort_by(|a, b| {
             // This quite possibly works because transform_point results in -translation
             // and then we're sorting from front to back, rather than back to front
-            let world_pos_a = self.entities[*a].1
+            let world_pos_a = self.entities[*a]
                 .properties
                 .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
-            let world_pos_b = self.entities[*b].1
+            let world_pos_b = self.entities[*b]
                 .properties
                 .world_matrix
                 .transform_point3(glam::Vec3::ZERO);
@@ -196,7 +197,7 @@ impl Scene {
 
     pub fn render(&mut self, draw_commands: &mut Vec<DrawCommand>) {
         for entity in self.scene_graph.iter().map(|id| &self.entities[*id]) {
-            draw_commands.push(DrawCommand::DrawEntity(entity.1));
+            draw_commands.push(DrawCommand::DrawEntity(*entity));
         }
     }
 }
