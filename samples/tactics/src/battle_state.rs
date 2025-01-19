@@ -51,7 +51,6 @@ impl BattleState {
             mesh_id: bg_sprite_ids.0,
             material_id: bg_sprite_ids.1,
             position: Vec3::new(0.0, 0.0, -100.0),
-            scale: Vec3::ONE,
             uv_offset: Vec2::ZERO,
             uv_scale: Vec2::ONE,
             color: Color::WHITE,

@@ -43,7 +43,6 @@ impl Grid {
                 mesh_id,
                 material_id,
                 position,
-                scale: Vec3::ONE,
                 uv_scale: Vec2::ONE,
                 uv_offset: Vec2::ZERO,
                 color: Color::TRANSPARENT,

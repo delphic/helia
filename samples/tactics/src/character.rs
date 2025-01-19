@@ -28,7 +28,6 @@ impl Character {
             mesh_id,
             material_id,
             position: grid.get_translation_for_position(position),
-            scale: Vec3::ONE,
             uv_offset: Vec2::ZERO,
             uv_scale: Vec2::ONE,
             color: Color::WHITE,
