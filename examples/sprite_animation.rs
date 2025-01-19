@@ -88,7 +88,6 @@ impl Game for GameState {
             },
             projection: camera::Projection::Orthographic,
             size: OrthographicSize::from_ratio_height(ratio, 1.0),
-            pixel_ratio: 1.0,
         };
 
         state.camera = camera;

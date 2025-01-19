@@ -172,9 +172,10 @@ impl GameState {
     }
 }
 
+const PIXEL_RATIO : u32 = 1;
+
 impl Game for GameState {
     fn init(&mut self, state: &mut State) {
-        let pixel_ratio = 1;
         let camera = Camera {
             eye: (0.0, 0.0, 2.0).into(),
             target: (0.0, 0.0, 0.0).into(),
@@ -185,8 +186,7 @@ impl Game for GameState {
             far: 1000.0,
             clear_color: Color::BLACK,
             projection: camera::Projection::Orthographic,
-            size: OrthographicSize::from_size_scale(state.size, pixel_ratio),
-            pixel_ratio: pixel_ratio as f32,
+            size: OrthographicSize::from_size_scale(state.size, PIXEL_RATIO),
         };
 
         self.load_resources(state);
@@ -217,7 +217,7 @@ impl Game for GameState {
     }
 
     fn resize(&mut self, state: &mut State) {
-        state.camera.size = OrthographicSize::from_size(state.size);
+        state.camera.size = OrthographicSize::from_size_scale(state.size, PIXEL_RATIO);
     }
 }
 

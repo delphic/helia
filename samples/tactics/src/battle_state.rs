@@ -112,14 +112,6 @@ impl BattleState {
                     // this is essentially selecting the "skip turn" ability
                     self.grid
                         .set_highlight(player.character.position, Color::RED);
-                    self.text_mesh.set_text("Testing Testing".to_string());
-                    self.text_mesh.translate(Vec3::new(-16.0, 16.0, 0.0));
-                    for i in 0..self.text_mesh.text.len() {
-                        self.text_mesh.offset_char(
-                            i,
-                            Vec3::new(0.0, (i as f32 / 2.0).sin() * 4.0, 0.0),
-                        );
-                    }
                 }
             }
             BattleStage::PlayerAction => {
@@ -158,12 +150,6 @@ impl BattleState {
                 player.character.start_turn(&self.grid);
                 self.grid.set_movement_highlights(&player.character);
                 self.stage = BattleStage::PlayerMove;
-                self.text_mesh.set_text("Helia Tactics!".to_string());
-                self.text_mesh.translate(Vec3::new(0.0, 16.0, 0.0));
-                for i in 0..self.text_mesh.text.len() {
-                    self.text_mesh
-                        .offset_char(i, Vec3::new(0.0, 0.0, 0.0));
-                }
             }
         }
     }

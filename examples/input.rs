@@ -24,7 +24,6 @@ impl Game for GameState {
                 b: 0.3,
                 a: 1.0,
             },
-            pixel_ratio: 1.0,
         };
 
         state.camera = camera;

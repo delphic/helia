@@ -63,12 +63,12 @@ impl OrthographicSize {
     /// Create orthographic viewport from physical size, scaled by a pixel ratio, ensuring integer boundary values
     /// Use for upscaled pixel perfect alignment
     pub fn from_size_scale(size: PhysicalSize<u32>, pixel_ratio: u32) -> Self {
-        let scale = 0.5 * (pixel_ratio as f32).recip();
+        let half_size = 0.5 * (pixel_ratio as f32).recip();
         Self {
-            left: (-scale * size.width as f32).ceil(),
-            right: (scale * size.width as f32).ceil(),
-            bottom: (-scale * size.height as f32).ceil(),
-            top: (scale * size.height as f32).ceil(),
+            left: (-half_size * size.width as f32).ceil(),
+            right: (half_size * size.width as f32).ceil(),
+            bottom: (-half_size * size.height as f32).ceil(),
+            top: (half_size * size.height as f32).ceil(),
         }
     }
 }
@@ -90,14 +90,12 @@ pub struct Camera {
     pub size: OrthographicSize,
     pub clear_color: wgpu::Color,
     pub projection: Projection,
-    pub pixel_ratio: f32,
 }
 
 impl Camera {
     // todo: provide functions for orthographic and perspective camera create methods
 
     pub fn build_view_projection_matrix(&self) -> Mat4 {
-        let scale = Mat4::from_scale(self.pixel_ratio * Vec3::ONE);
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
         let proj = match self.projection {
             Projection::Perspective => {
@@ -112,7 +110,7 @@ impl Camera {
                 self.far,
             ),
         };
-        OPENGL_TO_WGPU_MATRIX * proj * view * scale
+        OPENGL_TO_WGPU_MATRIX * proj * view
     }
 }
 
@@ -129,7 +127,6 @@ impl Default for Camera {
             size: OrthographicSize::default(),
             clear_color: wgpu::Color::BLACK,
             projection: Projection::Perspective,
-            pixel_ratio: 1.0,
         }
     }
 }
