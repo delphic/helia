@@ -107,9 +107,7 @@ impl Game for GameState {
                     let transform = Transform::from_position_rotation(position, rotation);
                     (
                         transform, 
-                        InstanceProperties::builder()
-                            .with_matrix(transform.into())
-                            .build()
+                        InstanceProperties::from_transform(transform)
                     )
                 })
             })

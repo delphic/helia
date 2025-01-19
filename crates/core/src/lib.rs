@@ -219,7 +219,7 @@ impl State {
                     Entity::new(
                         *mesh,
                         *material,
-                        InstanceProperties::builder().with_matrix((*transform).into()).build()),
+                        InstanceProperties::from_transform(*transform)),
                 DrawCommand::DrawEntity(entity) => *entity,
             };
             if let Some(shader) = self.resources.materials.get(entity.material).and_then(|material| Some(material.shader)) {

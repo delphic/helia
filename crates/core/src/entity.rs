@@ -2,7 +2,7 @@
 
 use glam::{Mat4, Vec2};
 
-use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms};
+use crate::{material::MaterialId, mesh::MeshId, shader::EntityUniforms, transform::Transform};
 
 // This is really a render object at the moment
 // it is also mixing the requirements of the shader (transform / color)
@@ -78,6 +78,15 @@ impl Default for InstanceProperties {
 impl InstanceProperties {
     pub fn builder() -> InstancePropertiesBuilder {
         InstancePropertiesBuilder::new()
+    }
+
+    pub fn from_transform(transform: Transform) -> Self {
+        Self {
+            world_matrix: transform.into(),
+            color: wgpu::Color::WHITE,
+            uv_offset: Vec2::ZERO,
+            uv_scale: Vec2::ONE,
+        }
     }
 }
 
