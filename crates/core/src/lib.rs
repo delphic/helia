@@ -561,9 +561,16 @@ impl Helia {
         // Consider ControlFlow::Poll and not using about_to_wait in AppHandler 
         // c.f. https://github.com/sotrh/learn-wgpu/issues/549#issuecomment-2570248027
 
-        let mut app = App::new(game, self.title.clone(), self.resizable, self.window_size, &event_loop);
-        event_loop.run_app(&mut app).ok();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut app = App::new(game, self.title.clone(), self.resizable, self.window_size, &event_loop);
+            event_loop.run_app(&mut app).ok();
+        }
 
-        // Consider EventLoopExtWebSys::spawn_app for WASM to avoid exception
+        #[cfg(target_arch = "wasm32")]
+        {
+            let app = App::new(game, self.title.clone(), self.resizable, self.window_size, &event_loop);
+            winit::platform::web::EventLoopExtWebSys::spawn_app(event_loop, app);
+        }
     }
 }
