@@ -76,7 +76,7 @@ impl State {
     // Creating some of the wgpu types requires async code
     async fn new(window: Arc<Window>, size: PhysicalSize<u32>) -> Self {
         // The instance is a handle to our GPU
-        let instance = wgpu::util::new_instance_with_webgpu_detection(InstanceDescriptor::default()).await;
+        let instance = wgpu::util::new_instance_with_webgpu_detection(&InstanceDescriptor::default()).await;
         let surface = instance.create_surface(window.clone()).unwrap();
         log::info!("{:?}", surface);
         let adapter = instance
